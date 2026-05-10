@@ -423,6 +423,34 @@ def run_causal_discovery_workflow(
 
         logger.info("✅ Experiment tracker initialized")
 
+    # STAGE 0B: SAMPLE SIZE ADEQUACY CHECK
+    logger.info("\n" + "=" * 70)
+    logger.info("STAGE 0B: SAMPLE SIZE ADEQUACY")
+    logger.info("=" * 70)
+
+    from framework.core.sample_size_adequacy import assess_sample_size
+
+    sample_size_report = assess_sample_size(data_df, tau_max=tau_max)
+    logger.info(
+        f"  T_eff={sample_size_report.t_effective}, N={sample_size_report.n_variables}, "
+        f"tau_max={tau_max}, missing={sample_size_report.missing_fraction:.1%}"
+    )
+    logger.info(f"  Recommended methods: {sample_size_report.recommended_methods}")
+    if sample_size_report.warnings:
+        for w in sample_size_report.warnings:
+            logger.warning(f"  {w}")
+
+    # Save report
+    import json as _json
+
+    adequacy_path = output_dir / "sample_size_adequacy.json"
+    with open(adequacy_path, "w") as _f:
+        _json.dump(sample_size_report.to_dict(), _f, indent=2)
+    logger.info(f"  ✅ Sample size adequacy report saved: {adequacy_path}")
+
+    if tracker:
+        tracker.log_file_path(adequacy_path, "sample_size_adequacy")
+
     # Preprocessing stage
     if enable_preprocessing:
         logger.info("\n" + "=" * 70)

@@ -251,6 +251,30 @@ def select_ci_test(df: pd.DataFrame, method: str = "auto", verbose: bool = False
         is_nonlinear = (min_p_reset < 0.01) or dcor_nonlinear
 
         if is_nonlinear and CMIKNN_AVAILABLE:
+            # Sample size guard: check if T is sufficient for CMIknn
+            from framework.core.sample_size_adequacy import (
+                suggest_ci_test_for_sample_size,
+            )
+
+            n_vars = len(numeric_cols)
+            t_eff = int(df[numeric_cols].notna().all(axis=1).sum())
+            # Use a conservative tau_max estimate (will be refined later)
+            tau_max_est = min(12, max(1, t_eff // 10))
+            suggested = suggest_ci_test_for_sample_size(
+                t_effective=t_eff,
+                n_vars=n_vars,
+                tau_max=tau_max_est,
+                is_nonlinear=True,
+            )
+            if suggested != "cmiknn":
+                if verbose:
+                    logger.info(
+                        f"Auto CI test: nonlinear detected "
+                        f"({nonlinear_reason}) but T_eff={t_eff} insufficient for CMIknn. "
+                        f"Using {suggested} instead."
+                    )
+                return _make_ci_test(suggested, verbose), suggested
+
             try:
                 col_i, col_j = most_nonlinear_pair
                 _x = df[col_i].dropna().values[:20]

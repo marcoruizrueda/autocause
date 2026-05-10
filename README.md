@@ -6,7 +6,7 @@ Multi-method causal discovery framework for time series.
 [![License: GPLv3+](https://img.shields.io/badge/License-GPLv3%2B-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Tests: 14/14](https://img.shields.io/badge/tests-14%2F14-brightgreen.svg)]()
 
-AutoCause orchestrates multiple causal discovery methods on time-series data, with automatic tau_max estimation, preprocessing, adaptive CI-test selection, FDR correction, graph recovery evaluation (F1 + AUROC), consensus voting, falsification testing, and tiered edge classification.
+AutoCause orchestrates multiple causal discovery methods on time-series data, with automatic tau_max estimation, preprocessing, adaptive CI-test selection, sample size adequacy diagnostics, FDR correction, graph recovery evaluation (F1 + AUROC), consensus voting, falsification testing, and tiered edge classification.
 
 | Method | Paradigm | CI test / engine | Library |
 |--------|----------|------------------|---------|
@@ -87,7 +87,33 @@ PCMCI+ defaults to `test_method="auto"`, which runs a Ramsey RESET test on the d
 - **RobustParCorr** - linear, non-Gaussian data (robust to heavy tails)
 - **CMIknn** - nonlinear data (nonparametric, slower)
 
+When nonlinear data is detected but the sample size is too small for CMIknn (T_eff < 200), the selector automatically falls back to RobustParCorr with a logged warning. This sample-size-aware fallback prevents unreliable results on short series.
+
 Override with `method_config={"pcmci": {"test_method": "cmiknn"}}` for explicit control.
+
+### Sample size adequacy
+
+Before running any method, AutoCause checks whether the effective sample size (T minus tau_max minus missing-value rows) is sufficient for each method. The check runs automatically and saves `sample_size_adequacy.json` in the output directory.
+
+```python
+from framework.core.sample_size_adequacy import assess_sample_size
+
+report = assess_sample_size(df, tau_max=10)
+print(report.t_effective)          # e.g., 185
+print(report.recommended_methods)  # e.g., ['parcorr', 'robust_parcorr', 'granger']
+print(report.warnings)             # e.g., ['Methods with insufficient data: cmiknn, gpdc']
+```
+
+Method-specific minimums (example for N=4, tau_max=5):
+
+| Method | T_min | Rationale |
+|--------|:-----:|-----------|
+| ParCorr | 50 | 3 obs per OLS parameter |
+| RobustParCorr | 66 | Rank transformation overhead |
+| Granger (VAR) | 73 | F-test degrees of freedom |
+| VARLiNGAM | 120 | ICA stability |
+| CMIknn | 200 | k-NN MI convergence |
+| GPDC | 500 | GP hyperparameter optimization |
 
 ### PCMCI vs. PCMCI+
 
@@ -137,27 +163,28 @@ if audit["policy"].decision == "recommend":
 
 **A. Data and assumptions**
 1. tau_max estimation - ACF zero-crossing, domain constraint, Nyquist bound
-2. Preprocessing - outlier removal, interpolation, normalization, stationarity check
-3. Deseasonalization (optional) - rolling-mean subtraction to remove annual cycles
-4. [causal-audit](https://github.com/marcoruizrueda/causal-audit) (optional) - assumption diagnostics, risk scores, method recommendation
-5. Distribution tests - Gaussianity, linearity → CI test recommendation
-6. Correlation analysis - Pearson, Spearman, distance correlation (symmetric baseline)
+2. Sample size adequacy - method-specific T_min checks, CI-test fallback recommendations
+3. Preprocessing - outlier removal, interpolation, normalization, stationarity check
+4. Deseasonalization (optional) - rolling-mean subtraction to remove annual cycles
+5. [causal-audit](https://github.com/marcoruizrueda/causal-audit) (optional) - assumption diagnostics, risk scores, method recommendation
+6. Distribution tests - Gaussianity, linearity → CI test recommendation
+7. Correlation analysis - Pearson, Spearman, distance correlation (symmetric baseline)
 
 **B. Discovery**
-7. VAR-based Granger causality - conditional F-tests (all controls for N ≤ 10)
-8. PCMCI+ - momentary conditional independence with adaptive CI test
-9. LPCMCI - PCMCI+ extended for latent confounders (outputs PAG)
-10. VAR-LiNGAM - ICA on VAR residuals (non-Gaussian identifiability)
-11. Transfer entropy - k-NN conditional mutual information with surrogate p-values
-12. RF-baseline - Random Forest feature importance (non-causal comparison)
+8. VAR-based Granger causality - conditional F-tests (all controls for N ≤ 10)
+9. PCMCI+ - momentary conditional independence with adaptive CI test
+10. LPCMCI - PCMCI+ extended for latent confounders (outputs PAG)
+11. VAR-LiNGAM - ICA on VAR residuals (non-Gaussian identifiability)
+12. Transfer entropy - k-NN conditional mutual information with surrogate p-values
+13. RF-baseline - Random Forest feature importance (non-causal comparison)
 
 **C. Validation and synthesis**
-13. Graph recovery evaluation - F1, AUROC, AUPRC against ground truth (when available)
-14. CI-test sensitivity - compare edges across ParCorr / RobustParCorr / CMIknn
-15. Falsification - block permutation + IAAFT surrogate tests
-16. ICP stability - coefficient stability across environments
-17. Consensus - multi-method voting with lag tolerance
-18. Tiered classification - edges ranked by evidence strength
+14. Graph recovery evaluation - F1, AUROC, AUPRC against ground truth (when available)
+15. CI-test sensitivity - compare edges across ParCorr / RobustParCorr / CMIknn
+16. Falsification - block permutation + IAAFT surrogate tests
+17. ICP stability - coefficient stability across environments
+18. Consensus - multi-method voting with lag tolerance
+19. Tiered classification - edges ranked by evidence strength
 
 ## Tests
 
