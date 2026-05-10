@@ -88,22 +88,48 @@ def binary_metrics(
     discovered: Set[Tuple[str, str]],
     true_edges: Set[Tuple[str, str]],
 ) -> Dict[str, float]:
-    """Compute precision, recall, F1 from directed edge sets."""
+    """Compute precision, recall, F1, and SHD from directed edge sets.
+
+    SHD (Structural Hamming Distance) counts the minimum number of edge
+    additions, deletions, and reversals needed to transform the discovered
+    graph into the true graph. This matches the definition used in
+    TimeGraph (Ferdous et al. 2025) and the causal discovery literature.
+    """
     tp = len(true_edges & discovered)
     fp = len(discovered - true_edges)
     fn = len(true_edges - discovered)
     prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
     rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
-    shd = fp + fn  # structural Hamming distance (no reversal penalty)
+
+    # SHD with reversal detection:
+    # A reversal is when (A,B) is in true but (B,A) is in discovered (or vice versa).
+    # Each reversal counts as 1 edit (not 2), reducing the naive fp+fn count.
+    reversed_edges = set()
+    for edge in discovered - true_edges:
+        rev = (edge[1], edge[0])
+        if rev in (true_edges - discovered):
+            reversed_edges.add(frozenset(edge))
+
+    n_reversals = len(reversed_edges)
+    # SHD = pure additions + pure deletions + reversals
+    # pure FP (additions) = fp - reversals; pure FN (deletions) = fn - reversals
+    shd = (fp - n_reversals) + (fn - n_reversals) + n_reversals
+
+    # FDR (False Discovery Rate) = FP / (TP + FP)
+    fdr = fp / (tp + fp) if (tp + fp) > 0 else 0.0
+
     return {
         "tp": tp,
         "fp": fp,
         "fn": fn,
         "precision": prec,
         "recall": rec,
+        "tpr": rec,  # TPR = recall (for TimeGraph compatibility)
+        "fdr": fdr,  # FDR = 1 - precision (for TimeGraph compatibility)
         "f1": f1,
         "shd": shd,
+        "n_reversals": n_reversals,
     }
 
 
@@ -120,12 +146,15 @@ def binary_metrics_undirected(
     prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
     rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
+    fdr = fp / (tp + fp) if (tp + fp) > 0 else 0.0
     return {
         "tp": tp,
         "fp": fp,
         "fn": fn,
         "precision": prec,
         "recall": rec,
+        "tpr": rec,
+        "fdr": fdr,
         "f1": f1,
         "shd": fp + fn,
     }
@@ -260,10 +289,13 @@ def evaluate_graph_recovery(
                 "f1": 0.0,
                 "precision": 0.0,
                 "recall": 0.0,
+                "tpr": 0.0,
+                "fdr": 0.0,
                 "tp": 0,
                 "fp": 0,
                 "fn": len(true_edges),
                 "shd": len(true_edges),
+                "n_reversals": 0,
                 "auroc": float("nan"),
                 "auprc": float("nan"),
             }
