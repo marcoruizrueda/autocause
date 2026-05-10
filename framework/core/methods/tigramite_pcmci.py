@@ -122,60 +122,146 @@ def select_ci_test(df: pd.DataFrame, method: str = "auto", verbose: bool = False
     if method != "auto":
         return _make_ci_test(method, verbose), method
 
-    # Quick linearity check using the Ramsey RESET test — the standard
-    # econometric test for functional form misspecification.  If squared
-    # and cubed fitted values are significant predictors, the relationship
-    # is nonlinear.  This implements the key insight from the TimeGraph
-    # benchmark (Ferdous et al. 2025): ParCorr fails on nonlinear data
-    # (TPR→0), while CMIknn can capture nonlinear dependencies.
+    # Linearity check using the Ramsey RESET test across ALL variable pairs.
+    # The RESET test is the standard econometric test for functional form
+    # Nonlinearity detection using two complementary approaches:
+    #
+    # 1. Ramsey RESET test on both contemporaneous AND lagged pairs.
+    #    Testing lagged pairs is essential because in time series the
+    #    nonlinearity is often in the causal mechanism (e.g., X1(t-2) →
+    #    X4(t) via polynomial), not in contemporaneous associations.
+    #
+    # 2. Distance correlation vs. linear correlation ratio (dcor/|r|).
+    #    If dcor >> |r| for any pair, there is nonlinear dependence that
+    #    linear methods cannot capture.
+    #
+    # Decision: declare nonlinear if EITHER test triggers on ANY pair.
     numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
     if len(numeric_cols) < 2:
         if verbose:
             logger.info("Auto CI test: <2 variables, defaulting to ParCorr")
         return _make_ci_test("parcorr", verbose), "parcorr"
 
-    x = df[numeric_cols[0]].dropna().values
-    y = df[numeric_cols[1]].dropna().values
-    n = min(len(x), len(y), 500)  # cap at 500 for speed
-    x, y = x[:n], y[:n]
-
     try:
         from scipy import stats as sp_stats
+        from scipy.spatial.distance import pdist, squareform
         from numpy.linalg import lstsq
+        from itertools import combinations
 
-        # Fit linear model
-        slope, intercept, _, _, _ = sp_stats.linregress(x, y)
-        y_hat = slope * x + intercept
-        resid = y - y_hat
-        rss_lin = np.sum(resid**2)
-
-        # RESET: add y_hat^2 and y_hat^3 as regressors
-        X_aug = np.column_stack([np.ones(n), x, y_hat**2, y_hat**3])
-        _, rss_aug_arr, _, _ = lstsq(X_aug, y, rcond=None)
-        rss_aug = rss_aug_arr[0] if len(rss_aug_arr) > 0 else rss_lin
-
-        # F-statistic
-        q = 2  # two additional regressors
-        k = 4  # intercept + x + y_hat^2 + y_hat^3
-        if rss_aug > 0 and n > k:
-            f_stat = ((rss_lin - rss_aug) / q) / (rss_aug / (n - k))
-            p_reset = 1 - sp_stats.f.cdf(f_stat, q, n - k)
+        n_vars = len(numeric_cols)
+        all_pairs = list(combinations(range(n_vars), 2))
+        if len(all_pairs) > 20:
+            rng = np.random.default_rng(42)
+            pair_indices = rng.choice(len(all_pairs), size=20, replace=False)
+            pairs_to_test = [all_pairs[i] for i in pair_indices]
         else:
-            p_reset = 1.0
+            pairs_to_test = all_pairs
 
-        is_nonlinear = p_reset < 0.01
+        min_p_reset = 1.0
+        most_nonlinear_pair = (numeric_cols[0], numeric_cols[1])
+        nonlinear_reason = ""
+
+        def _reset_test(x, y):
+            """Run RESET test, return p-value."""
+            n = len(x)
+            slope, intercept, _, _, _ = sp_stats.linregress(x, y)
+            y_hat = slope * x + intercept
+            rss_lin = np.sum((y - y_hat) ** 2)
+            X_aug = np.column_stack([np.ones(n), x, y_hat**2, y_hat**3])
+            _, rss_aug_arr, _, _ = lstsq(X_aug, y, rcond=None)
+            rss_aug = rss_aug_arr[0] if len(rss_aug_arr) > 0 else rss_lin
+            q, k = 2, 4
+            if rss_aug > 0 and n > k:
+                f_stat = ((rss_lin - rss_aug) / q) / (rss_aug / (n - k))
+                return 1 - sp_stats.f.cdf(f_stat, q, n - k)
+            return 1.0
+
+        # --- RESET on contemporaneous pairs ---
+        for i_idx, j_idx in pairs_to_test:
+            col_i, col_j = numeric_cols[i_idx], numeric_cols[j_idx]
+            x = df[col_i].dropna().values
+            y = df[col_j].dropna().values
+            n = min(len(x), len(y), 500)
+            if n < 30:
+                continue
+            p_val = _reset_test(x[:n], y[:n])
+            if p_val < min_p_reset:
+                min_p_reset = p_val
+                most_nonlinear_pair = (col_i, col_j)
+                nonlinear_reason = f"RESET contemp p={p_val:.2e}"
+
+        # --- RESET on lagged pairs (lag=1,2,3) ---
+        lags_to_test = [1, 2, 3]
+        for lag in lags_to_test:
+            for i_idx in range(n_vars):
+                for j_idx in range(n_vars):
+                    if i_idx == j_idx:
+                        continue
+                    col_i, col_j = numeric_cols[i_idx], numeric_cols[j_idx]
+                    x_full = df[col_i].dropna().values
+                    y_full = df[col_j].dropna().values
+                    min_len = min(len(x_full), len(y_full))
+                    if min_len <= lag + 30:
+                        continue
+                    x = x_full[: min_len - lag]
+                    y = y_full[lag:min_len]
+                    n = min(len(x), 500)
+                    p_val = _reset_test(x[:n], y[:n])
+                    if p_val < min_p_reset:
+                        min_p_reset = p_val
+                        most_nonlinear_pair = (col_i, col_j)
+                        nonlinear_reason = f"RESET lag={lag} p={p_val:.2e}"
+
+        # --- Distance correlation ratio (dcor / |r|) ---
+        max_dcor_ratio = 0.0
+        dcor_nonlinear = False
+        for i_idx, j_idx in pairs_to_test[:10]:
+            col_i, col_j = numeric_cols[i_idx], numeric_cols[j_idx]
+            x = df[col_i].dropna().values[:300]
+            y = df[col_j].dropna().values[:300]
+            n = min(len(x), len(y))
+            if n < 30:
+                continue
+            x, y = x[:n], y[:n]
+            r = abs(np.corrcoef(x, y)[0, 1])
+            # Distance correlation
+            a = squareform(pdist(x.reshape(-1, 1)))
+            b = squareform(pdist(y.reshape(-1, 1)))
+            A = a - a.mean(axis=0) - a.mean(axis=1, keepdims=True) + a.mean()
+            B = b - b.mean(axis=0) - b.mean(axis=1, keepdims=True) + b.mean()
+            dcov2 = (A * B).mean()
+            dvar_x = (A * A).mean()
+            dvar_y = (B * B).mean()
+            if dvar_x > 0 and dvar_y > 0:
+                dcor = np.sqrt(max(0, dcov2) / np.sqrt(dvar_x * dvar_y))
+            else:
+                dcor = 0.0
+            if dcor > 0.05 and r < 0.05:
+                ratio = dcor / (r + 1e-10)
+                if ratio > max_dcor_ratio:
+                    max_dcor_ratio = ratio
+                if ratio > 3.0:
+                    dcor_nonlinear = True
+                    if nonlinear_reason == "" or min_p_reset > 0.05:
+                        most_nonlinear_pair = (col_i, col_j)
+                        nonlinear_reason = f"dcor/|r| ratio={ratio:.1f}"
+
+        # Decision: nonlinear if RESET p < 0.01 (strict, accounts for multiple
+        # testing across ~40 pairs) OR dcor ratio > 3 (independent signal)
+        is_nonlinear = (min_p_reset < 0.01) or dcor_nonlinear
 
         if is_nonlinear and CMIKNN_AVAILABLE:
-            # Verify CMIknn actually works on this platform (numpy 2.x
-            # compatibility issues can cause runtime errors in tigramite)
             try:
+                col_i, col_j = most_nonlinear_pair
+                _x = df[col_i].dropna().values[:20]
+                _y = df[col_j].dropna().values[:20]
                 _test_cmi = CMIknn(verbosity=0)
-                _arr = np.column_stack([x[:20], y[:20]])
+                _arr = np.column_stack([_x, _y])
                 _test_cmi.get_dependence_measure(_arr.T, np.array([0, 1]))
                 if verbose:
                     logger.info(
-                        f"Auto CI test: nonlinear data detected (RESET p={p_reset:.4f}), "
-                        f"using CMIknn"
+                        f"Auto CI test: nonlinear data detected "
+                        f"({nonlinear_reason}, pair={most_nonlinear_pair}), using CMIknn"
                     )
                 return _make_ci_test("cmiknn", verbose), "cmiknn"
             except Exception as cmi_err:
@@ -186,11 +272,10 @@ def select_ci_test(df: pd.DataFrame, method: str = "auto", verbose: bool = False
                     )
                 return _make_ci_test("parcorr", verbose), "parcorr"
         else:
-            # Linear data — check if Gaussian or heavy-tailed.
-            # RobustParCorr handles non-Gaussian marginals better than ParCorr
-            # by using a non-paranormal (rank-based) transformation.
+            x_check = df[numeric_cols[0]].dropna().values
+            n_check = min(len(x_check), 200)
             try:
-                _, p_shapiro = sp_stats.shapiro(x[: min(n, 200)])
+                _, p_shapiro = sp_stats.shapiro(x_check[:n_check])
                 is_nongaussian = p_shapiro < 0.01
             except Exception:
                 is_nongaussian = False
@@ -205,12 +290,16 @@ def select_ci_test(df: pd.DataFrame, method: str = "auto", verbose: bool = False
             else:
                 if verbose:
                     logger.info(
-                        f"Auto CI test: linear Gaussian (RESET p={p_reset:.4f}), using ParCorr"
+                        f"Auto CI test: linear Gaussian "
+                        f"(RESET min_p={min_p_reset:.4f}, dcor_ratio={max_dcor_ratio:.1f}), "
+                        f"using ParCorr"
                     )
                 return _make_ci_test("parcorr", verbose), "parcorr"
-    except Exception:
+    except Exception as e:
         if verbose:
-            logger.info("Auto CI test: linearity check failed, defaulting to ParCorr")
+            logger.info(
+                f"Auto CI test: linearity check failed ({e}), defaulting to ParCorr"
+            )
         return _make_ci_test("parcorr", verbose), "parcorr"
 
 
@@ -852,7 +941,7 @@ def batch_pcmci(
             pc_alpha=alpha,
             contemp_alpha=alpha,  # Allow contemporaneous by default
             fdr_method=fdr_method,
-            verbose=False,
+            verbose=True,  # Show PCMCI+ progress (variable-by-variable)
         )
 
         if full_results["graph"] is None or full_results["significances"] is None:
