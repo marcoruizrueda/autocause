@@ -1,0 +1,244 @@
+{
+    "sampling_days": 5,
+    "tau_max": 12,
+    "tau_max_method": "scientific",
+    "tau_max_auto_estimate": true,
+    "min_obs": 80,
+    "linearity_threshold": 0.05,
+    "alpha": 0.05,
+    "fdr": {
+        "family": "within_pair"
+    },
+    "controls": [],
+    "pcmci": {
+        "pc_alpha": 0.02,
+        "alpha_level": 0.05,
+        "allow_tau0": false,
+        "cmiknn_k": 10
+    },
+    "granger": {
+        "order_select": "aic",
+        "max_order": 12,
+        "conditional": true,
+        "residual_whiteness_alpha": 0.05,
+        "prefer_shorter_lags": false,
+        "lag_penalty_factor": 1.5
+    },
+    "te": {
+        "surrogates": 200,
+        "block_shuffle": true,
+        "block_length_rule": "acf_zero_or_2tau"
+    },
+    "consensus": {
+        "min_votes": 2,
+        "lag_tolerance_steps": 1
+    },
+    "preprocess": {
+        "difference": false,
+        "standardize": true
+    },
+    "general": {
+        "description": "Global causal discovery framework configuration",
+        "sampling_interval_days": 5,
+        "verbose": true,
+        "random_seed": 42
+    },
+    "temporal": {
+        "max_lag_days": 60,
+        "max_lag_timesteps": 12,
+        "tau_max_method": "scientific",
+        "tau_max_auto_estimate": true,
+        "tau_max_confidence_level": 0.95,
+        "tau_max_safety_factor": 3.0,
+        "allow_oversample": false,
+        "lag_selection_method": "aic"
+    },
+    "stationarity": {
+        "test": "adf+kpss",
+        "test_options": {
+            "adf_autolag": "AIC",
+            "adf_regression": "c",
+            "kpss_regression": "c",
+            "critical_level": 0.05
+        },
+        "treat_failure": "difference",
+        "seasonal_detrending": true,
+        "detrending_method": "seasonal_decompose",
+        "period_steps": 73
+    },
+    "linearity": {
+        "enabled": true,
+        "methods": [
+            "pearson_r2",
+            "mutual_info",
+            "bds_test"
+        ],
+        "test_options": {
+            "pearson_r2_threshold": 0.5,
+            "mutual_info_to_r2_ratio_threshold": 1.5,
+            "bds_embedding": 2,
+            "bds_critical_level": 0.05,
+            "high_r2_threshold": 0.95,
+            "min_r2_threshold": 0.8
+        },
+        "decision_rule": "if R\u00b2 > high_r2_threshold then linear; elif (R\u00b2 >= min_r2_threshold and MI/R\u00b2 < ratio_threshold) then linear; else nonlinear"
+    },
+    "missing_data": {
+        "strategy": "mask",
+        "max_missing_percent": 50,
+        "interpolation_method": "linear",
+        "interpolation_limit": 3,
+        "outlier_handling": "winsorize",
+        "outlier_winsorize_limits": [
+            0.05,
+            0.95
+        ],
+        "outlier_z_threshold": 3.5
+    },
+    "multiple_testing": {
+        "correction_method": "fdr_bh",
+        "correction_options": {
+            "auto_selection_rule": "dependency_and_n_tests",
+            "fwer_threshold": 0.05,
+            "fdr_threshold": 0.05,
+            "n_tests_fdr_cutoff": 100
+        },
+        "available_methods": [
+            "bonferroni",
+            "holm",
+            "holm-sidak",
+            "fdr_bh",
+            "fdr_by"
+        ]
+    },
+    "router": {
+        "linearity_nonlin_threshold_low": 0.03,
+        "linearity_nonlin_threshold_high": 0.1,
+        "max_missing_frac": 0.35,
+        "min_obs_per_tau_pcmci": 8,
+        "min_obs_per_tau_granger": 4,
+        "prefer_controls_corr_threshold": 0.5,
+        "max_ops_per_pair": 50000000.0,
+        "fallback_run_all_if_ambiguous": true,
+        "enable": true
+    },
+    "methods": {
+        "granger": {
+            "enabled": true,
+            "max_lag_override": null,
+            "lag_selection": "aic",
+            "pre_whiten": true,
+            "train_test_split": 0.8,
+            "test_direction": "forward",
+            "include_contemporaneous": false,
+            "bootstrap": {
+                "enabled": false,
+                "n_bootstrap": 100,
+                "ci_level": 0.95
+            }
+        },
+        "pcmci": {
+            "enabled": true,
+            "algorithm": "pcmcix",
+            "tau_max": 12,
+            "pc_alpha": 0.02,
+            "ci_test": "ParCorr",
+            "ci_test_options": {
+                "ParCorr": {
+                    "significance": "analytic",
+                    "use_mask": true
+                },
+                "GPDC": {
+                    "significance": "analytic",
+                    "use_mask": true,
+                    "kernel": "rbf",
+                    "gamma": "scale"
+                },
+                "CMIknn": {
+                    "n_neighbors": 5,
+                    "significance": "shuffle_test",
+                    "n_shuffle_tests": 100
+                }
+            },
+            "fdr": "fdr_bh",
+            "contemp_edges": false
+        },
+        "lpcmci": {
+            "enabled": false,
+            "tau_max": 18,
+            "pc_alpha": 0.05,
+            "ci_test": "GPDC",
+            "fdr": "fdr_bh"
+        },
+        "transfer_entropy": {
+            "enabled": true,
+            "estimator": "kraskov",
+            "k_neighbors": 5,
+            "discretization": "adaptive",
+            "n_bins_fallback": 5,
+            "sample_size_rule": "sqrt",
+            "surrogates": {
+                "enabled": true,
+                "n_surrogates": 100,
+                "method": "permutation",
+                "block_size": 10
+            }
+        },
+        "_description": "Control which causal discovery methods are executed. Set 'enabled' to false to skip a method. This allows selective execution per experiment."
+    },
+    "plotting": {
+        "theme": "seaborn-v0_8-darkgrid",
+        "figure_format": [
+            "svg",
+            "pdf",
+            "png"
+        ],
+        "figure_dpi": 300,
+        "figure_size_default": [
+            12,
+            8
+        ],
+        "colors": {
+            "linear": "#2ecc71",
+            "nonlinear": "#e74c3c",
+            "significant": "#3498db",
+            "insignificant": "#95a5a6",
+            "palette": "Set2"
+        },
+        "language": "en",
+        "font_size": {
+            "title": 16,
+            "label": 14,
+            "tick": 12,
+            "legend": 11
+        }
+    },
+    "mapping": {
+        "crs": "EPSG:3035",
+        "europe_extent": {
+            "west": -10,
+            "east": 40,
+            "south": 35,
+            "north": 70
+        },
+        "colormap": "RdYlGn",
+        "invert_colormap": false
+    },
+    "reporting": {
+        "include_literature_alignment": true,
+        "literature_sources": [
+            "Papagiannopoulou et al. 2017 (ERL)",
+            "Papagiannopoulou et al. 2017 (GMD)",
+            "Runge et al. 2020 (PMLR)",
+            "Requena-Mesa et al. 2021 (CVPRW)"
+        ],
+        "baseline_lag_range_days": [
+            7,
+            84
+        ],
+        "baseline_lag_range_weeks": [
+            1,
+            12
+        ]
+    }
+}

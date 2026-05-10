@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Environments
+.venv/
+
+# Tools
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+.cursor/
+.vscode/
+
+# OS
+.DS_Store
+
+# Outputs
+*.log
+*.pdf
+.github/
+.kiro/
+docs/
+experiments/

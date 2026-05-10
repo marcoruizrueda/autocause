@@ -89,6 +89,30 @@ PCMCI+ defaults to `test_method="auto"`, which runs a Ramsey RESET test on the d
 
 Override with `method_config={"pcmci": {"test_method": "cmiknn"}}` for explicit control.
 
+### PCMCI vs. PCMCI+
+
+The `"pcmci"` method key in AutoCause runs **PCMCI+** by default (discovers both lagged and contemporaneous causal links). To control this:
+
+```python
+method_config={
+    # PCMCI+ (default): discovers lagged AND contemporaneous edges
+    "pcmci": {"enabled": True, "test_method": "auto"},
+
+    # PCMCI (lagged-only): set allow_contemporaneous=False
+    # Useful when you know there are no instantaneous effects
+    "pcmci": {"enabled": True, "test_method": "parcorr", "allow_contemporaneous": False},
+
+    # LPCMCI: handles latent confounders (outputs a PAG, not a DAG)
+    "lpcmci": {"enabled": True},
+}
+```
+
+| Config | Algorithm | Discovers | Use when |
+|--------|-----------|-----------|----------|
+| `"pcmci": {"enabled": True}` | PCMCI+ | Lagged + contemporaneous | Default (most general) |
+| `"pcmci": {"enabled": True, "allow_contemporaneous": False}` | PCMCI | Lagged only | No instantaneous effects expected |
+| `"lpcmci": {"enabled": True}` | LPCMCI | Lagged + latent confounders | Hidden common causes suspected |
+
 ### Graph recovery evaluation
 
 When `true_edges` is provided, the workflow saves `graph_recovery_metrics.csv` with both binary (F1, precision, recall, SHD) and ranking (AUROC, AUPRC) metrics per method - following the evaluation protocols of TimeGraph (Ferdous et al. 2025) and CausalTime (Cheng et al. 2023).
