@@ -100,14 +100,15 @@ def _validate_tigramite_installed():
 def select_ci_test(df: pd.DataFrame, method: str = "auto", verbose: bool = False):
     """Select the conditional independence test based on data properties.
 
-    When method="auto", runs a quick linearity check (BIC comparison of
-    linear vs. polynomial regression on the first two variables) and
-    picks ParCorr for linear data or CMIknn for nonlinear data.
+    When method="auto", runs nonlinearity detection using:
+    1. Ramsey RESET test on all variable pairs (contemporaneous + lagged)
+    2. Distance correlation vs. linear correlation ratio (dcor/|r|)
 
-    This implements the key insight from the TimeGraph benchmark (Ferdous
-    et al. 2025): ParCorr fails completely on nonlinear data (TPR→0),
-    while CMIknn can capture nonlinear dependencies at the cost of
-    higher computational cost and lower power on linear data.
+    Picks CMIknn for nonlinear data or ParCorr for linear data. This
+    implements the key insight from the TimeGraph benchmark (Ferdous et
+    al. 2025): ParCorr fails completely on nonlinear data (TPR=0), while
+    CMIknn can capture nonlinear dependencies at the cost of higher
+    computational cost and lower power on linear data.
 
     Parameters:
         df: Multivariate time series (used for linearity check when auto)
@@ -122,8 +123,6 @@ def select_ci_test(df: pd.DataFrame, method: str = "auto", verbose: bool = False
     if method != "auto":
         return _make_ci_test(method, verbose), method
 
-    # Linearity check using the Ramsey RESET test across ALL variable pairs.
-    # The RESET test is the standard econometric test for functional form
     # Nonlinearity detection using two complementary approaches:
     #
     # 1. Ramsey RESET test on both contemporaneous AND lagged pairs.
@@ -900,7 +899,7 @@ def batch_pcmci(
     logger.info(f"\n{'=' * 70}")
     logger.info(f"Batch PCMCI+ for {len(variable_pairs)} pairs (method={test_method})")
     logger.info(
-        f"OPTIMIZED: Running PCMCI+ once on full dataset, then extracting pairs"
+        "OPTIMIZED: Running PCMCI+ once on full dataset, then extracting pairs"
     )
     logger.info(f"{'=' * 70}")
 
