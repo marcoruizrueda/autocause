@@ -6,7 +6,7 @@ Multi-method causal discovery framework for time series.
 [![License: GPLv3+](https://img.shields.io/badge/License-GPLv3%2B-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Tests: 14/14](https://img.shields.io/badge/tests-14%2F14-brightgreen.svg)]()
 
-AutoCause orchestrates multiple causal discovery methods on time-series data, with automatic tau_max estimation, preprocessing, adaptive CI-test selection, sample size adequacy diagnostics, FDR correction, graph recovery evaluation (F1 + AUROC), consensus voting, falsification testing, and tiered edge classification.
+AutoCause orchestrates multiple causal discovery methods on time-series data, with automatic tau_max estimation, preprocessing, adaptive CI-test selection, sample size adequacy diagnostics, FDR correction, graph recovery evaluation (F1, SHD, AUROC), consensus voting, falsification testing, and tiered edge classification.
 
 | Method | Paradigm | CI test / engine | Library |
 |--------|----------|------------------|---------|
@@ -141,7 +141,9 @@ method_config={
 
 ### Graph recovery evaluation
 
-When `true_edges` is provided, the workflow saves `graph_recovery_metrics.csv` with both binary (F1, precision, recall, SHD) and ranking (AUROC, AUPRC) metrics per method - following the evaluation protocols of TimeGraph (Ferdous et al. 2025) and CausalTime (Cheng et al. 2023).
+When `true_edges` is provided, the workflow saves `graph_recovery_metrics.csv` with both binary (F1, precision, recall, SHD) and ranking (AUROC, AUPRC) metrics per method, following the evaluation protocols of TimeGraph (Ferdous et al. 2025) and CausalTime (Cheng et al. 2023).
+
+SHD (Structural Hamming Distance) counts the minimum number of edge additions, deletions, and direction reversals needed to transform the discovered graph into the true graph. A reversed edge (A→B discovered as B→A) counts as 1 edit, not 2. This matches the standard definition used in TimeGraph and the broader causal discovery literature.
 
 ## Integration with causal-audit
 
@@ -179,7 +181,7 @@ if audit["policy"].decision == "recommend":
 13. RF-baseline - Random Forest feature importance (non-causal comparison)
 
 **C. Validation and synthesis**
-14. Graph recovery evaluation - F1, AUROC, AUPRC against ground truth (when available)
+14. Graph recovery evaluation - F1, SHD, AUROC, AUPRC against ground truth (when available)
 15. CI-test sensitivity - compare edges across ParCorr / RobustParCorr / CMIknn
 16. Falsification - block permutation + IAAFT surrogate tests
 17. ICP stability - coefficient stability across environments
