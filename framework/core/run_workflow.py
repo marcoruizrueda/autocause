@@ -112,6 +112,7 @@ def run_causal_discovery_workflow(
     enable_causal_audit: bool = False,
     true_edges: Optional[set] = None,
     deseasonalize: bool = False,
+    undirected_eval: bool = False,
 ) -> Dict:
     """
     Run complete causal discovery workflow on panel or single-unit data.
@@ -1421,6 +1422,86 @@ def run_causal_discovery_workflow(
         except Exception as e:
             logger.warning(f"CI sensitivity analysis failed: {e}")
 
+    # Ensemble scoring: confidence-weighted aggregation across methods
+    ensemble_df = None
+    try:
+        from framework.core.ensemble_scoring import (
+            compute_ensemble_scores,
+            detect_data_regime,
+        )
+
+        # Detect regime from distribution tests or defaults
+        _nonlinear = False
+        _nongaussian = False
+        if distribution_results:
+            for col_res in distribution_results.values():
+                if hasattr(col_res, "is_linear") and not col_res.is_linear:
+                    _nonlinear = True
+                if hasattr(col_res, "is_gaussian") and not col_res.is_gaussian:
+                    _nongaussian = True
+
+        regime = detect_data_regime(
+            data_df,
+            nonlinearity_detected=_nonlinear,
+            nongaussian_detected=_nongaussian,
+        )
+
+        ensemble_df = compute_ensemble_scores(
+            results, regime, significance_threshold=0.5
+        )
+        if ensemble_df is not None and len(ensemble_df) > 0:
+            ensemble_path = output_dir / "ensemble_edges.csv"
+            ensemble_df.to_csv(ensemble_path, index=False)
+            logger.info(
+                f"✅ Ensemble edges saved: {ensemble_path} ({len(ensemble_df)} edges)"
+            )
+            if tracker:
+                tracker.log_file_path(ensemble_path, "ensemble_edges")
+    except Exception as e:
+        logger.warning(f"Ensemble scoring failed: {e}")
+
+    # Power analysis: report minimum detectable effect size
+    try:
+        from framework.core.power_analysis import analyze_power
+        from framework.core.sample_size_adequacy import compute_effective_sample_size
+
+        t_eff = compute_effective_sample_size(data_df, tau_max)
+        n_vars_power = len(data_df.select_dtypes(include=["number"]).columns)
+
+        power_reports = {}
+        for method_name in results:
+            n_sig = 0
+            if results[method_name] is not None and isinstance(
+                results[method_name], pd.DataFrame
+            ):
+                sig_col = (
+                    "is_significant"
+                    if "is_significant" in results[method_name].columns
+                    else "significant"
+                )
+                if sig_col in results[method_name].columns:
+                    n_sig = int(results[method_name][sig_col].sum())
+            report = analyze_power(
+                method_name,
+                t_eff,
+                n_vars_power,
+                tau_max,
+                alpha=alpha,
+                n_significant_edges=n_sig,
+            )
+            power_reports[method_name] = report.to_dict()
+
+        power_path = output_dir / "power_analysis.json"
+        import json as _json_power
+
+        with open(power_path, "w") as _fp:
+            _json_power.dump(power_reports, _fp, indent=2)
+        logger.info(f"✅ Power analysis saved: {power_path}")
+        if tracker:
+            tracker.log_file_path(power_path, "power_analysis")
+    except Exception as e:
+        logger.warning(f"Power analysis failed: {e}")
+
     # Graph recovery evaluation (when ground truth is provided)
     graph_metrics = None
     if true_edges is not None:
@@ -1442,6 +1523,7 @@ def run_causal_discovery_workflow(
                 results_dict=results,
                 true_edges=true_edges,
                 var_names=eval_var_names,
+                undirected=undirected_eval,
             )
 
             metrics_df = save_evaluation(

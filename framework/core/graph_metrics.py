@@ -49,8 +49,8 @@ METHOD_COLUMNS = {
         "score_type": "pvalue",
     },
     "pcmci": {
-        "src": "target",
-        "tgt": "source",
+        "src": "source",
+        "tgt": "target",
         "sig": "is_significant",
         "score": "best_p_value",
         "score_type": "pvalue",
@@ -63,8 +63,8 @@ METHOD_COLUMNS = {
         "score_type": "coefficient",
     },
     "lpcmci": {
-        "src": "target",
-        "tgt": "source",
+        "src": "source",
+        "tgt": "target",
         "sig": "is_significant",
         "score": "best_p_value",
         "score_type": "pvalue",

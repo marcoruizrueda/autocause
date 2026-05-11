@@ -898,9 +898,7 @@ def batch_pcmci(
     """
     logger.info(f"\n{'=' * 70}")
     logger.info(f"Batch PCMCI+ for {len(variable_pairs)} pairs (method={test_method})")
-    logger.info(
-        "OPTIMIZED: Running PCMCI+ once on full dataset, then extracting pairs"
-    )
+    logger.info("OPTIMIZED: Running PCMCI+ once on full dataset, then extracting pairs")
     logger.info(f"{'=' * 70}")
 
     # Collect all unique variables from pairs and controls
@@ -996,11 +994,14 @@ def batch_pcmci(
         results = []
         for source, target in variable_pairs:
             # Find edges from source to target
-            source_to_target = all_edges[
-                (all_edges["source"] == source)
-                & (all_edges["target"] == target)
-                & (all_edges["is_significant"])
-            ]
+            if len(all_edges) > 0 and "source" in all_edges.columns:
+                source_to_target = all_edges[
+                    (all_edges["source"] == source)
+                    & (all_edges["target"] == target)
+                    & (all_edges["is_significant"])
+                ]
+            else:
+                source_to_target = pd.DataFrame()
 
             causal_found = len(source_to_target) > 0
             best_lag = source_to_target["lag"].min() if causal_found else np.nan
@@ -1022,7 +1023,9 @@ def batch_pcmci(
                             (all_edges["source"] == source)
                             & (all_edges["target"] == target)
                         ]
-                    ),
+                    )
+                    if len(all_edges) > 0 and "source" in all_edges.columns
+                    else 0,
                     "n_significant": len(source_to_target),
                     "n_observations": len(data_subset),
                     "test_method": test_method,

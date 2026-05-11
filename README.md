@@ -182,11 +182,13 @@ if audit["policy"].decision == "recommend":
 
 **C. Validation and synthesis**
 14. Graph recovery evaluation - F1, SHD, AUROC, AUPRC against ground truth (when available)
-15. CI-test sensitivity - compare edges across ParCorr / RobustParCorr / CMIknn
-16. Falsification - block permutation + IAAFT surrogate tests
-17. ICP stability - coefficient stability across environments
-18. Consensus - multi-method voting with lag tolerance
-19. Tiered classification - edges ranked by evidence strength
+15. Ensemble scoring - confidence-weighted aggregation across methods (regime-adaptive weights)
+16. Power analysis - minimum detectable effect size (MDES) per method
+17. CI-test sensitivity - compare edges across ParCorr / RobustParCorr / CMIknn
+18. Falsification - block permutation + IAAFT surrogate tests
+19. ICP stability - coefficient stability across environments
+20. Consensus - multi-method voting with lag tolerance
+21. Tiered classification - edges ranked by evidence strength
 
 ## Tests
 
