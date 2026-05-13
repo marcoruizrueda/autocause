@@ -110,6 +110,7 @@ def run_causal_discovery_workflow(
     method_config: Optional[Dict] = None,
     enable_consensus: bool = False,
     enable_causal_audit: bool = False,
+    causal_audit_only: bool = False,
     true_edges: Optional[set] = None,
     deseasonalize: bool = False,
     undirected_eval: bool = False,
@@ -164,6 +165,10 @@ def run_causal_discovery_workflow(
             If False, only individual method results are reported.
         enable_causal_audit (bool): Run causal-audit assumption risk assessment after
             preprocessing (default: False). Requires causal-audit to be installed.
+        causal_audit_only (bool): If True, run only the causal-audit stage and return
+            immediately without running any causal discovery methods (default: False).
+            Implies enable_causal_audit=True. Useful for fast pre-screening of data
+            properties before committing to a full discovery run.
         true_edges (Optional[set]): Ground truth edges as a set of (source, target)
             tuples.  When provided, the workflow computes graph recovery metrics
             (F1, AUROC, AUPRC) for each method and saves them to
@@ -521,7 +526,7 @@ def run_causal_discovery_workflow(
 
     # Causal-audit stage: assumption risk assessment (optional)
     causal_audit_result = None
-    if enable_causal_audit:
+    if enable_causal_audit or causal_audit_only:
         logger.info("\n" + "=" * 70)
         logger.info("STAGE 0B: CAUSAL-AUDIT (ASSUMPTION RISK ASSESSMENT)")
         logger.info("=" * 70)
@@ -601,6 +606,20 @@ def run_causal_discovery_workflow(
             )
         except Exception as e:
             logger.warning(f"causal-audit failed: {e}. Continuing without it.")
+
+    # Early return when causal_audit_only=True
+    if causal_audit_only:
+        logger.info("\n" + "=" * 70)
+        logger.info("CAUSAL-AUDIT ONLY MODE: stopping before discovery methods.")
+        logger.info("=" * 70)
+        if tracker:
+            tracker.finalize()
+        logging.getLogger().removeHandler(file_handler)
+        return {
+            "causal_audit": causal_audit_result,
+            "output_dir": str(output_dir),
+            "mode": "causal_audit_only",
+        }
 
     # Distribution testing stage
     distribution_results = None

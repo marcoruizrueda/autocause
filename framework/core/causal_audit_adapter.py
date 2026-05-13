@@ -75,6 +75,8 @@ def map_audit_to_config(
 
     # Extract risk profile
     risk_profile = audit_output.get("risk_profile")
+    # "ConfoundingRisk" is the internal key; displayed as "Causal insufficiency"
+    # (proxy for latent confounders via VIF/Chow diagnostics)
     confounding_risk = 0.0
     if risk_profile is not None:
         risks = _get_attr(risk_profile, "risks", {})
@@ -140,13 +142,13 @@ def map_audit_to_config(
             config["enable_surrogates"] = True
             logger.info("enable_surrogates: enabled due to low audit confidence")
 
-    # Map confounding risk to LPCMCI
+    # Map causal insufficiency risk (confounding proxy) to LPCMCI
     if confounding_risk > 0.7:
         if "method_config" not in config:
             config["method_config"] = {}
         if "lpcmci" not in config.get("method_config", {}):
             config.setdefault("method_config", {})["lpcmci"] = {"enabled": True}
-            logger.info("LPCMCI: enabled due to high confounding risk")
+            logger.info("LPCMCI: enabled due to high causal insufficiency risk")
 
     # Handle abstention
     if decision == "abstain":

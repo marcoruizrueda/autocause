@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autocause"
-version = "0.1.0"
-description = "Multi-method causal discovery framework for time series"
+version = "0.2.0"
+description = "Multi-method causal discovery framework for time series with pre-discovery diagnostics"
 authors = [{name = "Marco Ruiz", email = "marco.rueda@tecnico.ulisboa.pt"}]
 license = {text = "GPLv3+"}
 readme = "README.md"
 requires-python = ">=3.13"
-keywords = ["causal-discovery", "time-series", "granger", "pcmci", "transfer-entropy"]
+keywords = ["causal-discovery", "time-series", "granger", "pcmci", "transfer-entropy", "tigramite", "pre-discovery"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
@@ -34,6 +34,8 @@ dependencies = [
     "plotly>=5.0",
     "dcor>=0.6",
     "lingam>=1.8",
+    "SciencePlots>=2.0.0",
+    "causal-audit>=0.3.1",
 ]
 
 [project.urls]

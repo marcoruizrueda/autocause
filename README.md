@@ -72,11 +72,25 @@ run_causal_discovery_workflow(
     true_edges={("X","Y")},          # ground truth → auto-computes F1, AUROC, AUPRC
     enable_consensus=True,           # multi-method voting
     enable_causal_audit=True,        # run causal-audit assumption diagnostics first
+    causal_audit_only=True,          # run ONLY causal-audit, skip all discovery methods
     method_config={
         "pcmci": {"enabled": True, "test_method": "parcorr"},  # force a specific CI test
         "ci_sensitivity": {"enabled": True},  # compare ParCorr vs RobustParCorr vs CMIknn
     },
 )
+```
+
+When `causal_audit_only=True`, the workflow runs the full pre-discovery diagnostics (stationarity, nonlinearity, confounding, seasonality) and returns immediately with the risk profile and method recommendation. No causal discovery methods are executed. This is useful for fast data screening before committing to a full run.
+
+```python
+# Fast pre-screening: ~30 seconds instead of hours
+result = run_causal_discovery_workflow(
+    data_df=df, output_dir="audit_only/", causal_audit_only=True,
+    enable_preprocessing=False,
+)
+policy = result["causal_audit"]["policy"]
+print(f"Recommended: {policy.recommended_method} ({policy.confidence:.0%})")
+# → Recommended: PCMCI+ (83%)
 ```
 
 ### Adaptive CI-test selection
