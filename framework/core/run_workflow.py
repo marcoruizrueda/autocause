@@ -111,6 +111,7 @@ def run_causal_discovery_workflow(
     enable_consensus: bool = False,
     enable_causal_audit: bool = False,
     causal_audit_only: bool = False,
+    apply_audit_recommendation: bool = False,
     true_edges: Optional[set] = None,
     deseasonalize: bool = False,
     undirected_eval: bool = False,
@@ -186,8 +187,8 @@ def run_causal_discovery_workflow(
     from framework.core.methods.visualize_results import visualize_all_results
 
     # Import new enhancement modules
-    if enable_preprocessing:
-        from framework.core.preprocessing import TimeSeriesPreprocessor
+    from framework.core.preprocessing import TimeSeriesPreprocessor
+
     if enable_distribution_tests:
         from framework.core.distribution_tests import DistributionTester
     if enable_strength_analysis:
@@ -458,73 +459,11 @@ def run_causal_discovery_workflow(
         tracker.log_file_path(adequacy_path, "sample_size_adequacy")
 
     # Preprocessing stage
-    if enable_preprocessing:
-        logger.info("\n" + "=" * 70)
-        logger.info("STAGE 0: PREPROCESSING")
-        logger.info("=" * 70)
-
-        metadata_cols = [col for col in [unit_id_col, date_col] if col is not None]
-
-        preprocessor = TimeSeriesPreprocessor(
-            interpolation_method="linear",  # Faster than GP for large datasets
-            stationarity_test="adf",  # Use ADF test
-            normalize=True,
-            outlier_method="iqr",
-            remove_seasonality=False,  # Keep domain semantics
-        )
-
-        data_df, prep_report = preprocessor.preprocess(
-            data_df, metadata_cols=metadata_cols, verbose=True
-        )
-
-        # Save preprocessing report
-        prep_report_path = output_dir / "preprocessing_report.json"
-        prep_report.save(prep_report_path)
-        logger.info(f"✅ Preprocessing report saved: {prep_report_path}")
-
-        if prep_report.quality_flags:
-            logger.warning("⚠️  Quality issues detected:")
-            for flag in prep_report.quality_flags:
-                logger.warning(f"   - {flag}")
-
-        if tracker:
-            tracker.log_data_hash(data_df, data_name="preprocessed_data")
-            tracker.log_file_path(prep_report_path, "preprocessing_report")
-    else:
-        if tracker:
-            tracker.log_data_hash(data_df, data_name="raw_data")
-
-    # Deseasonalization (optional — removes annual/periodic cycles)
-    if deseasonalize:
-        logger.info("\n" + "=" * 70)
-        logger.info("DESEASONALIZATION (anomaly series)")
-        logger.info("=" * 70)
-        try:
-            metadata_cols = [col for col in [unit_id_col, date_col] if col is not None]
-            numeric_cols = data_df.select_dtypes(include=["number"]).columns.tolist()
-            numeric_cols = [c for c in numeric_cols if c not in metadata_cols]
-
-            for col in numeric_cols:
-                series = data_df[col].dropna()
-                if len(series) < 10:
-                    continue
-                # STL-like: subtract rolling mean (window = min(365, T//3))
-                window = min(365, max(7, len(series) // 3))
-                if window % 2 == 0:
-                    window += 1
-                seasonal = series.rolling(
-                    window=window, center=True, min_periods=1
-                ).mean()
-                data_df[col] = data_df[col] - seasonal
-
-            data_df = data_df.dropna(how="all")
-            logger.info(
-                f"  Deseasonalized {len(numeric_cols)} variables (window={window})"
-            )
-        except Exception as e:
-            logger.warning(f"Deseasonalization failed: {e}")
-
-    # Causal-audit stage: assumption risk assessment (optional)
+    # Causal-audit stage runs FIRST so its recommended preprocessing flags
+    # (deseasonalize, impute_missing) and method configuration (pcmci.test_method,
+    # knn) apply before Stage 0 preprocessing and Stage 2 discovery. The audit
+    # itself operates on the raw input dataframe; subsequent stages may rewrite
+    # the data, but the recommendation is fixed at this point.
     causal_audit_result = None
     if enable_causal_audit or causal_audit_only:
         logger.info("\n" + "=" * 70)
@@ -590,6 +529,57 @@ def run_causal_discovery_workflow(
                     "Discovery will proceed but results may be unreliable."
                 )
 
+            # Bridge audit recommendations back to the workflow configuration.
+            # The recommender returns a method_config in the same nested schema
+            # this workflow consumes ({pcmci: {test_method, knn, ...}, ...}) plus
+            # an optional preprocessing block. When apply_audit_recommendation
+            # is True, the keys are merged into the active method_config and
+            # deseasonalize/impute flags. User-supplied overrides take precedence.
+            if apply_audit_recommendation and policy.method_config:
+                rec = policy.method_config or {}
+                for mname in (
+                    "pcmci",
+                    "granger",
+                    "transfer_entropy",
+                    "varlingam",
+                    "lpcmci",
+                    "predictive_baseline",
+                    "correlation",
+                ):
+                    rec_block = rec.get(mname)
+                    if not isinstance(rec_block, dict):
+                        continue
+                    method_config.setdefault(mname, {})
+                    for k, v in rec_block.items():
+                        method_config[mname].setdefault(k, v)
+                # Default PCMCI+ to ParCorr when the audit did not specify a
+                # test method. Without this fallback the workflow falls back to
+                # the autocause RESET-based auto-selector, whose strict
+                # threshold can mis-classify high-dimensional linear data as
+                # nonlinear and route to CMIknn (orders of magnitude slower).
+                # The audit-driven contract is "explicit decision over
+                # heuristic", so the absence of an explicit test_method is
+                # treated as a recommendation for ParCorr.
+                method_config.setdefault("pcmci", {}).setdefault(
+                    "test_method", "parcorr"
+                )
+                logger.info(
+                    f"  Audit-driven method_config applied: pcmci.test_method="
+                    f"{method_config.get('pcmci', {}).get('test_method', 'auto')} "
+                    f"knn={method_config.get('pcmci', {}).get('knn', 'default')}"
+                )
+                pre = rec.get("preprocessing") or {}
+                if isinstance(pre, dict):
+                    if pre.get("deseasonalize") and not deseasonalize:
+                        deseasonalize = True
+                        logger.info("  Audit-driven deseasonalize=True applied")
+                    if pre.get("impute_missing") and not enable_preprocessing:
+                        enable_preprocessing = True
+                        logger.info(
+                            "  Audit-driven enable_preprocessing=True applied "
+                            "(linear interpolation of missing observations)"
+                        )
+
             if tracker:
                 tracker.log_file_path(
                     audit_output_dir / "risk_profile.json", "causal_audit_risk_profile"
@@ -621,6 +611,74 @@ def run_causal_discovery_workflow(
             "mode": "causal_audit_only",
         }
 
+    if enable_preprocessing:
+        logger.info("\n" + "=" * 70)
+        logger.info("STAGE 0: PREPROCESSING")
+        logger.info("=" * 70)
+
+        metadata_cols = [col for col in [unit_id_col, date_col] if col is not None]
+
+        preprocessor = TimeSeriesPreprocessor(
+            interpolation_method="linear",  # Faster than GP for large datasets
+            stationarity_test="adf",  # Use ADF test
+            normalize=True,
+            outlier_method="iqr",
+            remove_seasonality=False,  # Keep domain semantics
+            max_missing_frac=0.5,  # Permit imputation up to 50% per variable
+        )
+
+        data_df, prep_report = preprocessor.preprocess(
+            data_df, metadata_cols=metadata_cols, verbose=True
+        )
+
+        # Save preprocessing report
+        prep_report_path = output_dir / "preprocessing_report.json"
+        prep_report.save(prep_report_path)
+        logger.info(f"✅ Preprocessing report saved: {prep_report_path}")
+
+        if prep_report.quality_flags:
+            logger.warning("⚠️  Quality issues detected:")
+            for flag in prep_report.quality_flags:
+                logger.warning(f"   - {flag}")
+
+        if tracker:
+            tracker.log_data_hash(data_df, data_name="preprocessed_data")
+            tracker.log_file_path(prep_report_path, "preprocessing_report")
+    else:
+        if tracker:
+            tracker.log_data_hash(data_df, data_name="raw_data")
+
+    # Deseasonalization (optional — removes annual/periodic cycles)
+    if deseasonalize:
+        logger.info("\n" + "=" * 70)
+        logger.info("DESEASONALIZATION (anomaly series)")
+        logger.info("=" * 70)
+        try:
+            metadata_cols = [col for col in [unit_id_col, date_col] if col is not None]
+            numeric_cols = data_df.select_dtypes(include=["number"]).columns.tolist()
+            numeric_cols = [c for c in numeric_cols if c not in metadata_cols]
+
+            for col in numeric_cols:
+                series = data_df[col].dropna()
+                if len(series) < 10:
+                    continue
+                # STL-like: subtract rolling mean (window = min(365, T//3))
+                window = min(365, max(7, len(series) // 3))
+                if window % 2 == 0:
+                    window += 1
+                seasonal = series.rolling(
+                    window=window, center=True, min_periods=1
+                ).mean()
+                data_df[col] = data_df[col] - seasonal
+
+            data_df = data_df.dropna(how="all")
+            logger.info(
+                f"  Deseasonalized {len(numeric_cols)} variables (window={window})"
+            )
+        except Exception as e:
+            logger.warning(f"Deseasonalization failed: {e}")
+
+    # Causal-audit stage: assumption risk assessment (optional)
     # Distribution testing stage
     distribution_results = None
     if enable_distribution_tests:
@@ -1148,26 +1206,17 @@ def run_causal_discovery_workflow(
                                     use_streaming=use_streaming,
                                 )
                             else:
-                                # Pairwise streaming correlation (default)
-                                correlation_results = []
-                                for x_var, y_var in pairs:
-                                    x = df_agg_corr[x_var].values
-                                    y = df_agg_corr[y_var].values
-                                    result = corr_module.pairwise_streaming_correlation(
-                                        x, y
-                                    )
-                                    correlation_results.append(
-                                        {
-                                            "cause": x_var,
-                                            "effect": y_var,
-                                            "lag": 0,  # Correlation is lag-0
-                                            "correlation": result["correlation"],
-                                            "p_value": result["p_value"],
-                                            "n_obs": result["n_obs"],
-                                            "significant": result["p_value"] < alpha,
-                                        }
-                                    )
-                                corr_df = pd.DataFrame(correlation_results)
+                                # Lagged cross-correlation (default)
+                                lagged_methods = corr_config.get(
+                                    "lagged_methods", ["pearson", "spearman"]
+                                )
+                                corr_df = corr_module.batch_lagged_correlation(
+                                    df_agg_corr,
+                                    pairs,
+                                    tau_max=tau_max,
+                                    alpha=alpha,
+                                    methods=lagged_methods,
+                                )
 
                             if corr_df is not None and len(corr_df) > 0:
                                 # Save to CSV
@@ -1278,9 +1327,9 @@ def run_causal_discovery_workflow(
         # PCMCI+
         if enable_pcmci:
             logger.info("  Running PCMCI+...")
-            pcmci_test_method = method_config.get("pcmci", {}).get(
-                "test_method", "auto"
-            )
+            pcmci_cfg = method_config.get("pcmci", {})
+            pcmci_test_method = pcmci_cfg.get("test_method", "auto")
+            pcmci_knn = pcmci_cfg.get("knn", None)
             results["pcmci"] = tigramite_pcmci.batch_pcmci(
                 data_df,
                 pairs,
@@ -1288,6 +1337,7 @@ def run_causal_discovery_workflow(
                 test_method=pcmci_test_method,
                 alpha=alpha,
                 sampling_days=sampling_days,
+                knn=pcmci_knn,
             )
             _save_method_result("pcmci", results["pcmci"])
         else:
@@ -1337,45 +1387,33 @@ def run_causal_discovery_workflow(
         else:
             results["predictive_baseline"] = pd.DataFrame()
 
-        # Correlation (pairwise streaming or sparse)
+        # Correlation (lagged cross-correlation)
         if enable_correlation:
-            logger.info("  Running Correlation analysis...")
+            logger.info("  Running lagged correlation analysis...")
             from framework.core.methods import correlation as corr_module
 
             # Get correlation config options
             corr_config = method_config.get("correlation", {})
             use_sparse = corr_config.get("sparse_thresholding", False)
-            p_threshold = corr_config.get("p_threshold", alpha)
-            use_streaming = corr_config.get("use_streaming", True)
 
             if use_sparse:
                 # Sparse correlation analysis
                 results["correlation"] = corr_module.sparse_pairwise_correlations(
                     data_df,
                     alpha=alpha,
-                    p_threshold=p_threshold,
-                    use_streaming=use_streaming,
+                    p_threshold=corr_config.get("p_threshold", alpha),
+                    use_streaming=corr_config.get("use_streaming", True),
                 )
-                _save_method_result("correlation", results["correlation"])
             else:
-                # Pairwise streaming correlation (default)
-                correlation_results = []
-                for x_var, y_var in pairs:
-                    x = data_df[x_var].values
-                    y = data_df[y_var].values
-                    result = corr_module.pairwise_streaming_correlation(x, y)
-                    correlation_results.append(
-                        {
-                            "cause": x_var,
-                            "effect": y_var,
-                            "lag": 0,  # Correlation is lag-0
-                            "correlation": result["correlation"],
-                            "p_value": result["p_value"],
-                            "n_obs": result["n_obs"],
-                            "significant": result["p_value"] < alpha,
-                        }
-                    )
-                results["correlation"] = pd.DataFrame(correlation_results)
+                # Lagged cross-correlation (default), tests lags 1..tau_max
+                lagged_methods = corr_config.get("lagged_methods", ["pearson", "spearman"])
+                results["correlation"] = corr_module.batch_lagged_correlation(
+                    data_df,
+                    pairs,
+                    tau_max=tau_max,
+                    alpha=alpha,
+                    methods=lagged_methods,
+                )
             _save_method_result("correlation", results["correlation"])
         else:
             results["correlation"] = pd.DataFrame()

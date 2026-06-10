@@ -326,8 +326,14 @@ def select_ci_test(df: pd.DataFrame, method: str = "auto", verbose: bool = False
         return _make_ci_test("parcorr", verbose), "parcorr"
 
 
-def _make_ci_test(method: str, verbose: bool = False):
-    """Instantiate a tigramite CI test object."""
+def _make_ci_test(method: str, verbose: bool = False, knn=None):
+    """Instantiate a tigramite CI test object.
+
+    The optional ``knn`` argument applies only to CMIknn and accepts either a
+    fraction of T (``0 < knn < 1``, the Tigramite default) or an absolute
+    integer count of nearest neighbours (``knn >= 1``). When unset, the
+    Tigramite default (``knn=0.2``) is preserved.
+    """
     verbosity = 1 if verbose else 0
     if method == "parcorr":
         return ParCorr(verbosity=verbosity)
@@ -337,7 +343,9 @@ def _make_ci_test(method: str, verbose: bool = False):
         if not CMIKNN_AVAILABLE:
             logger.warning("CMIknn not available, falling back to ParCorr")
             return ParCorr(verbosity=verbosity)
-        return CMIknn(verbosity=verbosity)
+        if knn is None:
+            return CMIknn(verbosity=verbosity)
+        return CMIknn(verbosity=verbosity, knn=knn)
     elif method == "gpdc":
         if not GPDC_AVAILABLE:
             logger.warning("GPDC not available, falling back to ParCorr")
@@ -442,6 +450,7 @@ def run_pcmci_algorithm(
     fdr_method: str = "fdr_bh",
     missing_threshold: float = 0.5,
     verbose: bool = True,
+    knn=None,
 ) -> Dict:
     """
     Run PCMCI+ algorithm on multivariate time series.
@@ -493,7 +502,10 @@ def run_pcmci_algorithm(
                 test = ParCorr(verbosity=1 if verbose else 0)
                 actual_method = "parcorr"
             else:
-                test = CMIknn(verbosity=1 if verbose else 0)
+                if knn is None:
+                    test = CMIknn(verbosity=1 if verbose else 0)
+                else:
+                    test = CMIknn(verbosity=1 if verbose else 0, knn=knn)
                 actual_method = "cmiknn"
         else:
             logger.warning(f"Unknown test method '{test_method}', using ParCorr")
@@ -877,6 +889,7 @@ def batch_pcmci(
     apply_fdr: bool = False,
     fdr_method: str = "fdr_bh",
     sampling_days: float = 1.0,
+    knn=None,
 ) -> pd.DataFrame:
     """
     Run PCMCI+ on multiple source-target pairs.
@@ -963,6 +976,7 @@ def batch_pcmci(
             contemp_alpha=alpha,  # Allow contemporaneous by default
             fdr_method=fdr_method,
             verbose=True,  # Show PCMCI+ progress (variable-by-variable)
+            knn=knn,
         )
 
         if full_results["graph"] is None or full_results["significances"] is None:

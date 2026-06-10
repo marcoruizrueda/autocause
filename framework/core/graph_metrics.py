@@ -76,6 +76,13 @@ METHOD_COLUMNS = {
         "score": "importance",
         "score_type": "coefficient",
     },
+    "correlation": {
+        "src": "source",
+        "tgt": "target",
+        "sig": "is_significant",
+        "score": "best_p",
+        "score_type": "pvalue",
+    },
 }
 
 

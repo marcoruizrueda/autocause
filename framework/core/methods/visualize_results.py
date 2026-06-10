@@ -76,7 +76,7 @@ def visualize_all_results(results_dict, output_dir):
 
         # P-value distribution
         pval_col = next(
-            (c for c in ["p_value", "best_p_value", "q_value"] if c in df.columns), None
+            (c for c in ["p_value", "best_p_value", "best_p", "q_value"] if c in df.columns), None
         )
         if pval_col:
             plot_df = df.copy()
@@ -224,6 +224,8 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     # P-value normalization
     if "best_p_value" in df.columns and "p_value" not in df.columns:
         rename_map["best_p_value"] = "p_value"
+    if "best_p" in df.columns and "p_value" not in df.columns:
+        rename_map["best_p"] = "p_value"
 
     # Significance normalization
     if "is_significant" in df.columns and "significant" not in df.columns:
