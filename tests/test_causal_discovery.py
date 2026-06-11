@@ -156,6 +156,60 @@ class TestPCMCI:
         assert len(bc) > 0, "Should detect B↔C link"
         assert len(ac) == 0, "Should NOT detect A↔C (screened off by B)"
 
+    def test_lagged_orientation_follows_time(self):
+        """Lagged links must be oriented X→Y in the generative direction.
+
+        Regression test for the Tigramite graph-convention mismatch: the
+        extraction layer must read graph[i,j,tau] as the link i→j (i at t-tau,
+        j at t), not the transpose. A transposed reader reports Y→X for a
+        ground-truth X→Y lagged link, which this test catches.
+        """
+        from framework.core.methods.tigramite_pcmci import batch_pcmci
+
+        r = batch_pcmci(
+            make_strong_cause(), [("X", "Y"), ("Y", "X")], tau_max=5, alpha=0.05
+        )
+        sig = r[r["is_significant"]]
+        xy = sig[(sig["source"] == "X") & (sig["target"] == "Y")]
+        yx = sig[(sig["source"] == "Y") & (sig["target"] == "X")]
+        assert len(xy) > 0, "Lagged link should be oriented X→Y (generative direction)"
+        assert len(yx) == 0, "Lagged link should not be reported in reverse Y→X"
+
+    def test_extract_respects_tigramite_convention(self):
+        """extract_causal_edges must map graph[i,j,tau]='-->' to source=i,target=j."""
+        import numpy as np
+        from framework.core.methods.tigramite_pcmci import extract_causal_edges
+
+        names = ["X", "Y"]
+        graph = np.full((2, 2, 3), "", dtype="<U3")
+        sig = np.ones((2, 2, 3))
+        # Lagged link X(t-2) -> Y(t): Tigramite stores it at graph[0,1,2].
+        graph[0, 1, 2] = "-->"
+        sig[0, 1, 2] = 0.001
+        edges = extract_causal_edges(graph, sig, names, alpha=0.05)
+        lagged = edges[edges["lag"] == 2]
+        assert len(lagged) == 1
+        row = lagged.iloc[0]
+        assert row["source"] == "X" and row["target"] == "Y"
+        assert bool(row["directed"]) is True
+
+    def test_extract_contemporaneous_oo_is_undirected(self):
+        """Contemporaneous 'o-o' links must be flagged undirected (Markov-equiv.)."""
+        import numpy as np
+        from framework.core.methods.tigramite_pcmci import extract_causal_edges
+
+        names = ["X", "Y"]
+        graph = np.full((2, 2, 1), "", dtype="<U3")
+        sig = np.ones((2, 2, 1))
+        graph[0, 1, 0] = "o-o"
+        graph[1, 0, 0] = "o-o"
+        sig[0, 1, 0] = 0.001
+        sig[1, 0, 0] = 0.001
+        edges = extract_causal_edges(graph, sig, names, alpha=0.05)
+        contemp = edges[edges["lag"] == 0]
+        assert len(contemp) == 1, "Symmetric o-o pair should be emitted once"
+        assert bool(contemp.iloc[0]["directed"]) is False
+
 
 class TestTauMax:
     def test_positive(self):

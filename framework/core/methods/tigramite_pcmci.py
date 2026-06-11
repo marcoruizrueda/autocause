@@ -633,18 +633,30 @@ def extract_causal_edges(
     alpha: float = 0.05,
 ) -> pd.DataFrame:
     """
-    Extract causal edges from PCMCI+ graph in standard format.
+    Extract causal edges from a PCMCI+ graph in standard (source, target) format.
 
-    Graph convention: graph[i,j,lag] = 1 means X_j(t-lag) -> X_i(t)
+    Graph convention (Tigramite): ``graph[i, j, tau]`` encodes the link from
+    variable ``i`` at time ``t-tau`` to variable ``j`` at time ``t``. For
+    ``tau > 0`` the only valid marker is ``'-->'`` (lagged links are oriented
+    by time order). For ``tau == 0`` the marker is ``'-->'`` (i -> j),
+    ``'<--'`` (j -> i), ``'o-o'`` (unoriented, within the contemporaneous
+    Markov equivalence class) or ``'x-x'`` (conflicting orientation). The
+    p-value matrix shares this indexing, so ``significances[i, j, tau]`` is the
+    p-value of the ``i -> j`` link at lag ``tau``.
+
+    The ``directed`` column flags whether the orientation is identified
+    (lagged links and oriented contemporaneous links) or left undirected
+    (``o-o``/``x-x`` contemporaneous links), so that downstream evaluation and
+    tiering can score orientation only where it is identifiable.
 
     Parameters:
-        graph (np.ndarray): Adjacency matrix (N x N x tau_max+1)
-        significances (np.ndarray): P-values for each edge
-        variable_names (List[str]): Variable names
-        alpha (float): Significance threshold
+        graph (np.ndarray): Adjacency matrix (N x N x tau_max+1).
+        significances (np.ndarray): P-values for each link, same indexing.
+        variable_names (List[str]): Variable names indexed as in the graph.
+        alpha (float): Significance threshold.
 
     Returns:
-        pd.DataFrame: Edges with source, target, lag, p-value, direction
+        pd.DataFrame: Edges with source, target, lag, p-value, direction.
     """
     edges = []
 
@@ -653,65 +665,86 @@ def extract_causal_edges(
 
     n_vars = graph.shape[0]
 
-    # Track contemporaneous edges to deduplicate symmetric pairs.
-    # ParCorr cannot orient lag-0 edges, so tigramite reports both
-    # (i,j,0) and (j,i,0) with the same p-value.  We keep only the
-    # pair where source_idx < target_idx to avoid double-counting.
+    # Contemporaneous links are symmetric in the graph array: both (i, j, 0)
+    # and (j, i, 0) carry a marker. Deduplicate on the unordered pair so that
+    # each contemporaneous link is emitted once.
     seen_contemp = set()
 
-    for target in range(n_vars):
-        for source in range(n_vars):
+    def _p_value(i, j, lag):
+        p = significances[i, j, lag]
+        if np.ndim(p) > 0:
+            return float(p.item()) if p.size == 1 else float(p[0])
+        return float(p)
+
+    # i indexes the source (variable at t-tau); j indexes the target (at t).
+    for i in range(n_vars):
+        for j in range(n_vars):
             for lag in range(graph.shape[2]):
-                # Extract scalar values to avoid array truth ambiguity
-                edge_val = graph[target, source, lag]
-                # Handle both numeric (legacy) and string (tigramite >=5.2) graph formats
+                edge_val = graph[i, j, lag]
                 if isinstance(edge_val, (str, np.str_)):
-                    edge_exists = edge_val.strip() != "" and edge_val.strip() != "0"
-                elif np.ndim(edge_val) > 0:
-                    # Edge value is array-like; check if any element is nonzero
-                    edge_exists = np.any(edge_val != 0)
+                    marker = edge_val.strip()
+                    edge_exists = marker not in ("", "0")
                 else:
-                    # Edge value is scalar
-                    edge_exists = edge_val != 0
-
-                if edge_exists:
-                    # Deduplicate contemporaneous edges: keep only (min, max) pair
-                    if lag == 0:
-                        pair_key = (min(source, target), max(source, target))
-                        if pair_key in seen_contemp:
-                            continue
-                        seen_contemp.add(pair_key)
-
-                    p_val = significances[target, source, lag]
-                    # Ensure p_val is also scalar
-                    if np.ndim(p_val) > 0:
-                        p_value = (
-                            float(p_val.item()) if p_val.size == 1 else float(p_val[0])
-                        )
-                    else:
-                        p_value = float(p_val)
-
-                    is_significant = p_value < alpha
-
-                    edges.append(
-                        {
-                            "source": variable_names[source],
-                            "target": variable_names[target],
-                            "lag": lag,
-                            "lag_steps": lag,
-                            "p_value": p_value,
-                            "is_significant": is_significant,
-                            "edge_type": "lagged" if lag > 0 else "contemp",
-                            "link_category": (
-                                "autoregressive"
-                                if variable_names[source] == variable_names[target]
-                                else (
-                                    "contemporaneous" if lag == 0 else "lagged_directed"
-                                )
-                            ),
-                            "direction": f"{variable_names[source]} → {variable_names[target]}",
-                        }
+                    marker = None
+                    edge_exists = (
+                        np.any(edge_val != 0)
+                        if np.ndim(edge_val) > 0
+                        else edge_val != 0
                     )
+
+                if not edge_exists:
+                    continue
+
+                if lag == 0:
+                    pair_key = (min(i, j), max(i, j))
+                    if pair_key in seen_contemp:
+                        continue
+                    seen_contemp.add(pair_key)
+                    if marker == "<--":
+                        src_idx, tgt_idx, directed = j, i, True
+                    elif marker == "-->":
+                        src_idx, tgt_idx, directed = i, j, True
+                    elif marker in ("o-o", "x-x"):
+                        # Unoriented or conflicting: orientation is not
+                        # identified from the data. Keep a canonical ordering
+                        # and flag the link as undirected.
+                        src_idx, tgt_idx, directed = i, j, False
+                    else:
+                        src_idx, tgt_idx, directed = i, j, True
+                    p_value = _p_value(i, j, lag)
+                else:
+                    # Lagged link: oriented from i (past) to j (present).
+                    src_idx, tgt_idx, directed = i, j, True
+                    p_value = _p_value(i, j, lag)
+
+                src_name = variable_names[src_idx]
+                tgt_name = variable_names[tgt_idx]
+                direction = (
+                    f"{src_name} \u2192 {tgt_name}"
+                    if directed
+                    else f"{src_name} \u2014 {tgt_name}"
+                )
+
+                is_significant = p_value < alpha
+
+                edges.append(
+                    {
+                        "source": src_name,
+                        "target": tgt_name,
+                        "lag": lag,
+                        "lag_steps": lag,
+                        "p_value": p_value,
+                        "is_significant": is_significant,
+                        "edge_type": "lagged" if lag > 0 else "contemp",
+                        "link_category": (
+                            "autoregressive"
+                            if src_name == tgt_name
+                            else ("contemporaneous" if lag == 0 else "lagged_directed")
+                        ),
+                        "direction": direction,
+                        "directed": directed,
+                    }
+                )
 
     return pd.DataFrame(edges).sort_values("p_value") if edges else pd.DataFrame(edges)
 
@@ -1020,6 +1053,14 @@ def batch_pcmci(
             causal_found = len(source_to_target) > 0
             best_lag = source_to_target["lag"].min() if causal_found else np.nan
             best_pvalue = source_to_target["p_value"].min() if causal_found else np.nan
+            # Orientation status: a contemporaneous link returned as 'o-o' by
+            # PCMCI+ is not identified (Markov equivalence class); lagged links
+            # are oriented by time order. Propagate this so downstream
+            # evaluation can score orientation only where it is identifiable.
+            if causal_found and "directed" in source_to_target.columns:
+                is_directed = bool(source_to_target["directed"].any())
+            else:
+                is_directed = causal_found
 
             results.append(
                 {
@@ -1031,6 +1072,7 @@ def batch_pcmci(
                     if not np.isnan(best_lag)
                     else np.nan,
                     "is_contemporaneous": best_lag == 0 if causal_found else False,
+                    "is_directed": is_directed,
                     "best_p_value": best_pvalue,
                     "n_edges_found": len(
                         all_edges[
