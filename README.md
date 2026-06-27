@@ -3,7 +3,7 @@
 Multi-method causal discovery framework for time series.
 
 [![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
-[![License: GPLv3+](https://img.shields.io/badge/License-GPLv3%2B-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Tests: 14/14](https://img.shields.io/badge/tests-14%2F14-brightgreen.svg)]()
 
 AutoCause orchestrates multiple causal discovery methods on time-series data, with automatic tau_max estimation, preprocessing, adaptive CI-test selection, sample size adequacy diagnostics, FDR correction, graph recovery evaluation (F1, SHD, AUROC), consensus voting, falsification testing, and tiered edge classification.
@@ -376,14 +376,9 @@ The workflow handles everything: method execution, visualization, graph evaluati
 
 ## License
 
-Copyright (C) 2025 Marco Ruiz.
+This project is licensed under the GNU Affero General Public License v3.0 or later
+(AGPL-3.0-or-later).
 
-AutoCause is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-AutoCause is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-See LICENSE for full text.
-
-GNU General Public License v3.0+
-
-AUTOCAUSE is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 3 of the License, or (at your option) any later version. AUTOCAUSE is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+This project depends on Tigramite, which is licensed under the GNU General Public
+License v3.0 or later (GPL-3.0-or-later). Tigramite remains under its original
+license.

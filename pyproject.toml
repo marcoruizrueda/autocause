@@ -7,7 +7,7 @@ name = "autocause"
 version = "0.2.0"
 description = "Multi-method causal discovery framework for time series with pre-discovery diagnostics"
 authors = [{name = "Marco Ruiz", email = "marco.rueda@tecnico.ulisboa.pt"}]
-license = {text = "GPLv3+"}
+license = {text = "AGPL-3.0-or-later"}
 readme = "README.md"
 requires-python = ">=3.13"
 keywords = ["causal-discovery", "time-series", "granger", "pcmci", "transfer-entropy", "tigramite", "pre-discovery"]
@@ -15,7 +15,7 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Information Analysis",
-    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Programming Language :: Python :: 3.13",
 ]
 
