@@ -17,11 +17,12 @@ build/
 
 # OS
 .DS_Store
+._*
 
 # Outputs
 *.log
 *.pdf
-.github/
-.kiro/
-docs/
-experiments/
+
+# Experiment results (generated, not committed)
+experiments/**/results/
+experiments/**/figures/

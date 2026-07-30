@@ -1,10 +1,12 @@
 # AutoCause
 
-Multi-method causal discovery framework for time series.
-
 [![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
 [![License: AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Tests: 14/14](https://img.shields.io/badge/tests-14%2F14-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-14%2F14-brightgreen.svg)](tests/)
+[![Paper](https://img.shields.io/badge/paper-arxiv-red.svg)](https://arxiv.org/abs/XXXX.XXXXX)
+
+**AutoCause** automates expert decisions in environmental time-series causal discovery:
+method selection, lag choice, CI-test selection, sample-size adequacy, FDR correction, and evidence grading.
 
 AutoCause orchestrates multiple causal discovery methods on time-series data, with automatic tau_max estimation, preprocessing, adaptive CI-test selection, sample size adequacy diagnostics, FDR correction, graph recovery evaluation (F1, SHD, AUROC), consensus voting, falsification testing, and tiered edge classification.
 
@@ -243,134 +245,40 @@ METHOD_COLUMNS["mymethod"] = {
 
 The consensus, visualization, and graph evaluation modules automatically pick up any new method.
 
-## Experiments
+## Reproducing the paper experiments
 
-AutoCause includes four benchmark experiments in `experiments/`. Each has a `run.py` script and produces a standard output structure. Full results are in [`experiments/RESULTS.md`](experiments/RESULTS.md).
+Experiment scripts and data for the benchmarks reported in the paper are maintained in the
+[`causal-audit`](https://github.com/marcoruizrueda/causal-audit) companion repository:
 
-### Running the experiments
+| Benchmark | Datasets | Run script |
+|-----------|----------|------------|
+| DGP-Atlas | 97 synthetic DGPs, 10 families | `experiments/atlas_validation/run.py` |
+| TimeGraph | 18 categories (linear, nonlinear, trend, missing) | `experiments/timegraph_validation/run.py` |
+| CausalRivers | 30 five-station subgraphs, Bavaria | `experiments/causalrivers_validation/run.py` |
 
-```bash
-# Synthetic DGP Atlas (our dataset, ~10 min)
-python experiments/atlas_validation/run.py
-
-# TimeGraph benchmark (KDD 2025, ~15 min)
-python experiments/timegraph_validation/run.py
-
-# CausalTime benchmark (NeurIPS 2024, ~30 min per domain)
-python experiments/causaltime_validation/run.py
-
-# FLUXNET-CH4 real-world wetland methane (~5 min)
-python experiments/fluxnet_ch4/run.py
-```
-
-Each experiment creates a folder per dataset/site with the standard AutoCause output:
-
-```
-experiments/<name>/
-├── results.csv              # summary across all datasets/sites
-├── RESULTS.md               # detailed analysis (root-level)
-└── families/ or sites/      # per-dataset outputs
-    └── <dataset>/
-        ├── method/
-        │   ├── granger/1-raw/results_granger.csv
-        │   ├── pcmci/1-raw/results_pcmci.csv
-        │   ├── varlingam/1-raw/results_varlingam.csv
-        │   └── predictive_baseline/1-raw/results_predictive_baseline.csv
-        ├── figures/
-        │   ├── per_method/      # causal graphs, p-value distributions
-        │   ├── comparison/      # cross-method panels
-        │   └── diagnostics/     # FDR, DAG, lag analysis
-        └── graph_recovery_metrics.csv   # F1, AUROC, AUPRC (when ground truth available)
-```
-
-### Reading the results
-
-**1. Summary CSV** - `experiments/<name>/results.csv` has one row per (dataset, method) with F1, precision, recall. Load it to compare methods:
-
-```python
-import pandas as pd
-r = pd.read_csv("experiments/timegraph_validation/results.csv")
-for m in r["method"].unique():
-    s = r[r["method"] == m]
-    print(f"{m:<14} F1={s['f1'].mean():.2f}")
-```
-
-**2. Graph recovery metrics** - `graph_recovery_metrics.csv` in each dataset folder has both binary (F1) and ranking (AUROC, AUPRC) metrics per method. AUROC is more informative than F1 because it evaluates the ranking quality of confidence scores, not just the binary threshold.
-
-```python
-m = pd.read_csv("experiments/atlas_validation/families/F1_clean_var/graph_recovery_metrics.csv")
-print(m[["method", "f1", "auroc", "auprc"]])
-```
-
-**3. Per-method CSVs** - each method's raw output is in `method/<name>/1-raw/results_<name>.csv`. These contain per-edge details (source, target, lag, p-value, significance):
-
-```python
-g = pd.read_csv("experiments/fluxnet_ch4/sites/FI-Lom_raw/method/granger/1-raw/results_granger.csv")
-drivers = g[g["significant"] & (g["effect"] == "FCH4")]
-print(drivers[["cause", "best_lag", "best_p_value"]])
-```
-
-**4. Causal vs. predictive** - compare the causal methods against the RF-baseline to see what causal discovery adds beyond prediction:
-
-```python
-# RF finds everything significant (no directional selectivity)
-rf = pd.read_csv(".../predictive_baseline/1-raw/results_predictive_baseline.csv")
-rf_drivers = set(rf[rf["is_significant"] & (rf["target"] == "FCH4")]["source"])
-
-# Granger is more selective (conditional testing filters indirect paths)
-gr = pd.read_csv(".../granger/1-raw/results_granger.csv")
-gr_drivers = set(gr[gr["significant"] & (gr["effect"] == "FCH4")]["cause"])
-
-print(f"RF finds {len(rf_drivers)} drivers, Granger finds {len(gr_drivers)}")
-print(f"Granger-only (not in RF): {gr_drivers - rf_drivers}")
-print(f"RF-only (filtered by Granger): {rf_drivers - gr_drivers}")
-```
-
-**5. Deseasonalization comparison** - the FLUXNET-CH4 experiment runs each site twice (raw and deseasonalized). Drivers that disappear after deseasonalization may be artifacts of shared annual cycles:
-
-```python
-r = pd.read_csv("experiments/fluxnet_ch4/results.csv")
-for var in ["GPP_DT", "WTD", "VPD", "TA"]:
-    raw = r[(r["variant"] == "raw") & r["drivers"].str.contains(var, na=False)]
-    des = r[(r["variant"] == "deseasonalized") & r["drivers"].str.contains(var, na=False)]
-    print(f"{var}: raw={len(raw)}, deseas={len(des)}")
-```
-
-### Writing a new experiment
-
-Use the existing experiments as templates. The minimal pattern:
-
-```python
-from framework.core.run_workflow import run_causal_discovery_workflow
-
-df = load_your_data()  # DataFrame with DatetimeIndex
-
-run_causal_discovery_workflow(
-    data_df=df,
-    output_dir="experiments/my_experiment/output/",
-    target_var="Y",
-    alpha=0.05,
-    sampling_days=1,
-    true_edges={("X", "Y"), ("Z", "Y")},  # optional ground truth
-    method_config={
-        "granger": {"enabled": True},
-        "pcmci": {"enabled": True},
-        "varlingam": {"enabled": True},
-        "predictive_baseline": {"enabled": True},
-    },
-)
-```
-
-The workflow handles everything: method execution, visualization, graph evaluation, and output organization.
+See the paper for full evaluation protocol, metric definitions, and numerical results.
 
 ## Citation
 
+If you use AutoCause in your research, please cite both the paper and the software:
+
 ```bibtex
-@software{autocause2025,
+@article{autocause2026,
+  title   = {AutoCause: A Python framework that automates expert decisions
+             in environmental time-series causal discovery},
+  author  = {Ruiz, Marco and Arana-Catania, Miguel and Ardila, David R.
+             and Ventura, Rodrigo},
+  year    = {2026},
+  journal = {Environmental Modelling \& Software},
+  doi     = {10.1016/j.envsoft.2026.xxxxx}
+}
+
+@software{autocause2026code,
   title  = {AutoCause: Multi-Method Causal Discovery Framework},
   author = {Ruiz, Marco},
-  year   = {2025},
-  url    = {https://github.com/marcoruizrueda/autocause}
+  year   = {2026},
+  url    = {https://github.com/marcoruizrueda/autocause},
+  doi    = {10.5281/zenodo.xxxxx}
 }
 ```
 

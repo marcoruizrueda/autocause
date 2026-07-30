@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+title: "AutoCause: A Python framework that automates expert decisions in environmental time-series causal discovery"
+message: "If you use AutoCause in your research, please cite our paper."
+type: software
+authors:
+  - family-names: Ruiz
+    given-names: Marco
+    orcid: "https://orcid.org/0000-0002-5163-413X"
+  - family-names: Arana-Catania
+    given-names: Miguel
+    orcid: "https://orcid.org/0000-0003-4277-0292"
+  - family-names: Ardila
+    given-names: David R.
+    orcid: "https://orcid.org/0000-0002-2564-8116"
+  - family-names: Ventura
+    given-names: Rodrigo
+    orcid: "https://orcid.org/0000-0002-5655-9562
+identifiers:
+  - type: url
+    value: "https://github.com/marcoruizrueda/autocause"
+  - type: url
+    value: "https://arxiv.org/abs/XXXX.XXXXX"
+repository-code: "https://github.com/marcoruizrueda/autocause"
+license: "AGPL-3.0-or-later"
+version: "0.2.0"
+date-released: 2026-07
+keywords:
+  - "causal discovery"
+  - "time series"
+  - "environmental modelling"
+  - "Python"
