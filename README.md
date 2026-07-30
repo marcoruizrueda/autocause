@@ -66,6 +66,7 @@ For detailed options (audit-only mode, adaptive CI-test selection, sample size a
 ![AutoCause pipeline architecture](docs/figures/fig1_architecture.png)
 
 **A. Data and assumptions**
+
 1. **τ<sub>max</sub> estimation**: ACF zero-crossing, domain constraint, Nyquist bound
 2. **Sample size adequacy**: method-specific *T*<sub>min</sub> checks, CI-test fallback
 3. **Preprocessing**: outlier removal, interpolation, normalization, stationarity check
@@ -75,6 +76,7 @@ For detailed options (audit-only mode, adaptive CI-test selection, sample size a
 7. **Correlation analysis**: Pearson, Spearman, distance correlation (symmetric baseline)
 
 **B. Discovery**
+
 8. **VAR-based Granger causality**: conditional *F*-tests (all controls for *N* ≤ 10)
 9. **PCMCI+**: momentary conditional independence with adaptive CI test
 10. **LPCMCI**: PCMCI+ extended for latent confounders (outputs PAG)
@@ -83,6 +85,7 @@ For detailed options (audit-only mode, adaptive CI-test selection, sample size a
 13. **RF-baseline**: Random Forest feature importance (non-causal comparison)
 
 **C. Validation and synthesis**
+
 14. **Graph recovery evaluation**: F1, SHD, AUROC, AUPRC against ground truth (when available)
 15. **Ensemble scoring**: confidence-weighted aggregation across methods (regime-adaptive weights)
 16. **Power analysis**: minimum detectable effect size (MDES) per method
