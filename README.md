@@ -206,12 +206,6 @@ if audit["policy"].decision == "recommend":
 20. Consensus - multi-method voting with lag tolerance
 21. Tiered classification - edges ranked by evidence strength
 
-## Tests
-
-```bash
-pytest tests/ -v
-```
-
 ## Adding a new method
 
 Every method follows the same pattern: `batch_<method>(df, variable_pairs, ...) → DataFrame`.
