@@ -924,8 +924,14 @@ def batch_lagged_correlation(
         best_per_pair = (
             results_df.groupby(["source", "target"], group_keys=False)
             .apply(lambda g: g.loc[g["best_r"].abs().idxmax()])
-            .reset_index(drop=True)
+            .reset_index()
         )
+        # In pandas 3.x+, groupby keys may already be regular columns after reset_index
+        if "source" not in best_per_pair.columns or "target" not in best_per_pair.columns:
+            cols = best_per_pair.columns.tolist()
+            for key in ["source", "target"]:
+                if key in best_per_pair.index.names:
+                    best_per_pair = best_per_pair.reset_index(key, drop=False)
         best_per_pair["is_best_lag"] = True
         results_df = results_df.merge(
             best_per_pair[["source", "target", "lag", "is_best_lag"]],

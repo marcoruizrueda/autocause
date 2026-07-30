@@ -35,8 +35,10 @@ dependencies = [
     "dcor>=0.6",
     "lingam>=1.8",
     "SciencePlots>=2.0.0",
-    "causal-audit>=0.3.1",
 ]
+
+[project.optional-dependencies]
+causal-audit = ["causal-audit>=0.3.1"]
 
 [project.urls]
 Repository = "https://github.com/marcoruizrueda/autocause"
