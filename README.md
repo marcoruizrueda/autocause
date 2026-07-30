@@ -59,7 +59,7 @@ results = run_causal_discovery_workflow(
 )
 ```
 
-For detailed options (audit-only mode, adaptive CI-test selection, sample size adequacy, PCMCI vs PCMCI+, graph recovery metrics, adding new methods), see [`docs/USAGE.md`](docs/USAGE.md).
+For detailed options (audit-only mode, adaptive CI-test selection, sample size adequacy, PCMCI vs PCMCI+, graph recovery metrics), see [`USAGE.md`](USAGE.md).
 
 ## Pipeline
 
@@ -77,22 +77,38 @@ For detailed options (audit-only mode, adaptive CI-test selection, sample size a
 
 **B. Discovery**
 
+<!-- continued from A -->
+
 8. **VAR-based Granger causality**: conditional *F*-tests (all controls for *N* ≤ 10)
+
 9. **PCMCI+**: momentary conditional independence with adaptive CI test
+
 10. **LPCMCI**: PCMCI+ extended for latent confounders (outputs PAG)
+
 11. **VAR-LiNGAM**: ICA on VAR residuals (non-Gaussian identifiability)
+
 12. **Transfer entropy**: *k*-NN conditional mutual information with surrogate *p*-values
+
 13. **RF-baseline**: Random Forest feature importance (non-causal comparison)
 
 **C. Validation and synthesis**
 
+<!-- continued from B -->
+
 14. **Graph recovery evaluation**: F1, SHD, AUROC, AUPRC against ground truth (when available)
+
 15. **Ensemble scoring**: confidence-weighted aggregation across methods (regime-adaptive weights)
+
 16. **Power analysis**: minimum detectable effect size (MDES) per method
+
 17. **CI-test sensitivity**: compare edges across ParCorr / RobustParCorr / CMIknn
+
 18. **Falsification**: block permutation + IAAFT surrogate tests
+
 19. **ICP stability**: coefficient stability across environments
+
 20. **Consensus**: multi-method voting with lag tolerance
+
 21. **Tiered classification**: edges ranked by evidence strength
 
 ## Reproducing the paper experiments
