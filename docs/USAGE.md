@@ -1,6 +1,6 @@
 # Usage Guide
 
-Detailed reference for AutoCause configuration and features. For a quick start, see the main [README](README.md).
+Detailed reference for AutoCause configuration and features. For a quick start, see the main [README](../README.md).
 
 ## Audit-only mode
 

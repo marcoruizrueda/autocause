@@ -59,7 +59,7 @@ results = run_causal_discovery_workflow(
 )
 ```
 
-For detailed options (audit-only mode, adaptive CI-test selection, sample size adequacy, PCMCI vs PCMCI+, graph recovery metrics), see [`USAGE.md`](USAGE.md).
+For detailed options (audit-only mode, adaptive CI-test selection, sample size adequacy, PCMCI vs PCMCI+, graph recovery metrics), see [`docs/USAGE.md`](docs/USAGE.md).
 
 ## Pipeline
 
