@@ -83,7 +83,7 @@ plot_transfer_entropy_flow(
 - Binary adjacency matrix (significant edges)
 - Which variable pairs are conditionally independent
 
-**Why it matters:** Fundamental for structure learning - shows which relationships persist after conditioning on other variables.
+**Why it matters:** Fundamental for structure learning: shows which relationships persist after conditioning on other variables.
 
 **Usage:**
 ```python
@@ -290,11 +290,11 @@ plot_fdr_diagnostics(results_df['p_value'], results_df['q_value'], output_path='
 
 ## Best Practices
 
-1. **Always generate FDR diagnostics** - Validate multiple testing correction
+1. **Always generate FDR diagnostics**: validate multiple testing correction
 2. **Use spectral analysis** for time series with strong temporal patterns
 3. **Generate bootstrap CIs** for final reported lags (uncertainty quantification)
-4. **Compare layouts** for causal graphs - different layouts reveal different structures
-5. **Export both PNG and SVG** - PNG for papers, SVG for editing
+4. **Compare layouts** for causal graphs: different layouts reveal different structures
+5. **Export both PNG and SVG**: PNG for papers, SVG for editing
 
 ## Publication Quality
 

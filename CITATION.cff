@@ -23,7 +23,7 @@ identifiers:
 repository-code: "https://github.com/marcoruizrueda/autocause"
 license: "AGPL-3.0-or-later"
 version: "0.2.0"
-date-released: 2026-07
+date-released: 2026-07-30
 keywords:
   - "causal discovery"
   - "time series"
