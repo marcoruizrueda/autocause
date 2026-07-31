@@ -118,18 +118,7 @@ All experiment scripts, configurations, and reproduction instructions are in
 
 ## Citation
 
-```bibtex
-@article{autocause2026,
-  title   = {AutoCause: A Python framework that automates expert decisions
-             in environmental time-series causal discovery},
-  author  = {Ruiz, Marco and Arana-Catania, Miguel and Ardila, David R.
-             and Ventura, Rodrigo},
-  year    = {2026},
-  journal = {Environmental Modelling \& Software},
-  doi     = {10.1016/j.envsoft.2026.xxxxx}
-}
-
-```
+--
 
 ## License
 
