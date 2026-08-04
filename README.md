@@ -118,6 +118,7 @@ All experiment scripts, configurations, and reproduction instructions are in
 
 ## Citation
 
+```
 @misc{ruiz2026autocause,
       title={AutoCause: A Python framework that automates expert decisions in environmental time-series causal discovery}, 
       author={Marco Ruiz and Miguel Arana-Catania and David R. Ardila and Rodrigo Ventura},
@@ -127,7 +128,7 @@ All experiment scripts, configurations, and reproduction instructions are in
       primaryClass={cs.LG},
       url={https://arxiv.org/abs/2608.00198}, 
 }
-
+```
 ## License
 
 AGPL-3.0-or-later. Depends on Tigramite (GPL-3.0-or-later), which remains under its original license.
