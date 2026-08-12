@@ -119,7 +119,7 @@ All experiment scripts, configurations, and reproduction instructions are in
 ## Citation
 
 ```
-@misc{ruiz2026autocause,
+@misc{ruiz2026autocausepythonframeworkautomates,
       title={AutoCause: A Python framework that automates expert decisions in environmental time-series causal discovery}, 
       author={Marco Ruiz and Miguel Arana-Catania and David R. Ardila and Rodrigo Ventura},
       year={2026},
@@ -128,6 +128,8 @@ All experiment scripts, configurations, and reproduction instructions are in
       primaryClass={cs.LG},
       url={https://arxiv.org/abs/2608.00198}, 
 }
+# APA:
+Ruiz, M., Arana-Catania, M., Ardila, D. R., & Ventura, R. (2026). AutoCause: A Python framework that automates expert decisions in environmental time-series causal discovery. arXiv preprint arXiv:2608.00198.
 ```
 ## License
 
