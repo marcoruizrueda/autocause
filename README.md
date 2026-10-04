@@ -21,11 +21,49 @@ The first five are causal discovery methods from the dominant paradigms. The RF-
 
 ## Installation
 
+### Users
+
+Install the released package with `uv` (recommended) or `pip`:
+
 ```bash
+uv pip install autocause
+# or
+pip install autocause
+```
+
+The optional causal-audit pre-discovery module is installed as an extra:
+
+```bash
+uv pip install "autocause[causal-audit]"
+```
+
+### Contributors
+
+Clone the repository and install an editable copy into a fresh environment:
+
+```bash
+git clone https://github.com/marcoruizrueda/autocause.git
+cd autocause
 uv venv .venv --python 3.13
 source .venv/bin/activate
 uv pip install -e .
 ```
+
+## Quickstart
+
+```python
+import pandas as pd
+from framework.core.run_workflow import run_causal_discovery_workflow
+
+# DataFrame with a DatetimeIndex and one column per variable
+df = pd.read_csv("data.csv", index_col=0, parse_dates=True)
+
+result = run_causal_discovery_workflow(data_df=df, output_dir="results/")
+print(result["consensus"]["tier1_edges"])  # majority-supported candidate links
+```
+
+This runs the full workflow with recorded defaults. See [Usage](#usage) for
+exploratory and configured runs.
 
 ## Usage
 
@@ -42,19 +80,32 @@ results = run_causal_discovery_workflow(
     target_var="FCH4",
     alpha=0.05,
     sampling_days=1,
-    deseasonalize=True,              # subtract rolling mean before discovery
-    true_edges={("X","Y")},          # optional: if ground truth available, computes F1, AUROC, AUPRC
-    enable_consensus=True,           # multi-method voting
-    enable_causal_audit=True,        # run causal-audit assumption diagnostics first
+    deseasonalize=True,  # subtract rolling mean before discovery
+    true_edges={
+        ("X", "Y")
+    },  # optional: if ground truth available, computes F1, AUROC, AUPRC
+    enable_consensus=True,  # multi-method voting
+    enable_causal_audit=True,  # run causal-audit assumption diagnostics first
     method_config={
-        "granger":              {"enabled": True},   # conditional VAR-based Granger (statsmodels)
-        "transfer_entropy":     {"enabled": True},   # CMIknn nearest-neighbour estimator (tigramite)
-        "pcmci":                {"enabled": True, "test_method": "parcorr"},  # PCMCI+ constraint-based (tigramite)
-        "varlingam":            {"enabled": True},   # ICA-based VAR-LiNGAM (lingam)
-        "lpcmci":               {"enabled": False},  # LPCMCI for latent confounders (tigramite)
-        "correlation":          {"enabled": True},   # lagged Pearson/Spearman (non-causal baseline)
-        "predictive_baseline":  {"enabled": True},   # Random Forest permutation importance (scikit-learn)
-        "ci_sensitivity":       {"enabled": True},   # compare ParCorr vs RobustParCorr vs CMIknn
+        "granger": {"enabled": True},  # conditional VAR-based Granger (statsmodels)
+        "transfer_entropy": {
+            "enabled": True
+        },  # CMIknn nearest-neighbour estimator (tigramite)
+        "pcmci": {
+            "enabled": True,
+            "test_method": "parcorr",
+        },  # PCMCI+ constraint-based (tigramite)
+        "varlingam": {"enabled": True},  # ICA-based VAR-LiNGAM (lingam)
+        "lpcmci": {"enabled": False},  # LPCMCI for latent confounders (tigramite)
+        "correlation": {
+            "enabled": True
+        },  # lagged Pearson/Spearman (non-causal baseline)
+        "predictive_baseline": {
+            "enabled": True
+        },  # Random Forest permutation importance (scikit-learn)
+        "ci_sensitivity": {
+            "enabled": True
+        },  # compare ParCorr vs RobustParCorr vs CMIknn
     },
 )
 ```
