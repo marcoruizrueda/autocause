@@ -66,16 +66,22 @@ source .venv/bin/activate
 uv pip install -e .
 ```
 
-For development with the pre-discovery audit, clone `causal-audit` beside
-`autocause` and install both editable packages:
+To include the pre-discovery audit, add the extra, which pulls `causal-audit`
+from PyPI:
+
+```bash
+uv pip install -e '.[causal-audit]'
+```
+
+To co-develop both packages, clone `causal-audit` beside `autocause` and install
+it editable as well, which overrides the PyPI copy:
 
 ```bash
 git clone https://github.com/marcoruizrueda/causal-audit.git ../causal-audit
 uv pip install -e ../causal-audit -e '.[causal-audit]'
 ```
 
-The `uv` source configuration and lockfile use that sibling checkout. The
-supported interpreter is Python 3.13, including the companion audit package.
+The supported interpreter is Python 3.13, including the companion audit package.
 `numba` is a required dependency for the CMIknn transfer-entropy estimator;
 LiNGAM brings its own dependencies, including `psy`, through the resolver.
 
@@ -152,7 +158,7 @@ results = run_causal_discovery_workflow(
 )
 ```
 
-For detailed options (audit-only mode, adaptive CI-test selection, sample size adequacy, PCMCI vs PCMCI+, graph recovery metrics), see [`docs/USAGE.md`](https://github.com/marcoruizrueda/autocause/blob/main/docs/USAGE.md).
+For detailed options (audit-only mode, CI-test auto-selection, sample size adequacy, PCMCI vs PCMCI+, graph recovery metrics), see [`docs/USAGE.md`](https://github.com/marcoruizrueda/autocause/blob/main/docs/USAGE.md).
 
 ### Methods
 
@@ -162,7 +168,7 @@ For detailed options (audit-only mode, adaptive CI-test selection, sample size a
 | Transfer entropy | Information-theoretic | CMIknn surrogates | `tigramite` |
 | PCMCI+ | Constraint-based | Auto: ParCorr / RobustParCorr / CMIknn | `tigramite` |
 | LPCMCI | Constraint-based (latent confounders) | Auto | `tigramite` |
-| VAR-LiNGAM | Score-based (ICA) | Bootstrap pruning | `lingam` |
+| VAR-LiNGAM | Noise-based (ICA) | Bootstrap pruning | `lingam` |
 | RF-baseline | Predictive (non-causal) | Permutation importance | `scikit-learn` |
 
 The first five are causal discovery methods from the dominant paradigms. The RF-baseline is a predictive reference included to answer: "does causal discovery find something different from feature importance?"
