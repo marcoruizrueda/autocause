@@ -22,7 +22,7 @@ identifiers:
     value: "https://arxiv.org/abs/2608.00198"
 repository-code: "https://github.com/marcoruizrueda/autocause"
 license: "AGPL-3.0-or-later"
-version: "0.2.0"
+version: "0.2.1"
 date-released: 2026-07-30
 keywords:
   - "causal discovery"

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autocause"
-version = "0.2.0"
+version = "0.2.1"
 description = "Multi-method causal discovery framework for time series with pre-discovery diagnostics"
 authors = [
     {name = "Marco Ruiz", email = "marco.rueda@tecnico.ulisboa.pt"},
