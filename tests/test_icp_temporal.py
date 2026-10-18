@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from framework.core.icp_stability import (
+from autocause.core.icp_stability import (
     create_temporal_environments,
     test_edge_stability_temporal,
     test_consensus_stability_temporal,

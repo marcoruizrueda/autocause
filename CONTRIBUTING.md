@@ -28,9 +28,9 @@ uv pip install -e ".[dev]"
 
 Every method follows the same pattern: `batch_<method>(df, variable_pairs, ...) → DataFrame`.
 
-**1. Create** `framework/core/methods/mymethod.py` with a `batch_mymethod()` function returning a DataFrame with `source`, `target`, `is_significant` columns.
+**1. Create** `autocause/core/methods/mymethod.py` with a `batch_mymethod()` function returning a DataFrame with `source`, `target`, `is_significant` columns.
 
-**2. Register** in `framework/core/methods/__init__.py`:
+**2. Register** in `autocause/core/methods/__init__.py`:
 
 ```python
 def _get_mymethod():
@@ -38,7 +38,7 @@ def _get_mymethod():
     return mymethod
 ```
 
-**3. Wire** into `framework/core/run_workflow.py`:
+**3. Wire** into `autocause/core/run_workflow.py`:
 
 ```python
 enable_mymethod = method_config.get("mymethod", {}).get("enabled", False)
@@ -46,7 +46,7 @@ if enable_mymethod:
     results["mymethod"] = mymethod_mod.batch_mymethod(data_df, pairs, ...)
 ```
 
-**4. Register** column conventions in `framework/core/graph_metrics.py`:
+**4. Register** column conventions in `autocause/core/graph_metrics.py`:
 
 ```python
 METHOD_COLUMNS["mymethod"] = {

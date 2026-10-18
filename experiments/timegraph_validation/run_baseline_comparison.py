@@ -35,8 +35,8 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from framework.core.run_workflow import run_causal_discovery_workflow
-from framework.core.graph_metrics import binary_metrics_undirected
+from autocause.core.run_workflow import run_causal_discovery_workflow
+from autocause.core.graph_metrics import binary_metrics_undirected
 
 logging.basicConfig(
     level=logging.INFO,
@@ -253,7 +253,7 @@ def main():
         logger.info(f"  Published values available: {len(PUBLISHED_RESULTS)}")
         logger.info(f"  Method: PCMCI+ with ParCorr (fixed)")
         try:
-            from framework.core.run_workflow import run_causal_discovery_workflow
+            from autocause.core.run_workflow import run_causal_discovery_workflow
             logger.info("  Imports OK")
         except ImportError as e:
             logger.error(f"  Import failed: {e}")

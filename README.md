@@ -1,25 +1,32 @@
+<div align="center">
+
 # AutoCause
 
 [![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
 [![License: AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Tests](https://img.shields.io/badge/tests-70%20collected-brightgreen.svg)](tests/)
-[![Paper](https://img.shields.io/badge/paper-arxiv-red.svg)](https://arxiv.org/abs/XXXX.XXXXX)
+[![Paper](https://img.shields.io/badge/paper-arxiv-red.svg)](https://arxiv.org/abs/2608.00198)
 
-**AutoCause** automates expert decisions in environmental time-series causal discovery:
-method selection, lag choice, CI-test selection, sample-size adequacy, FDR correction, and evidence grading.
+<p align="center">
+  <a href="https://arxiv.org/abs/2608.00198">📄 Paper (arXiv:2608.00198)</a>
+</p>
 
-| Method | Paradigm | CI test / engine | Library |
-|--------|----------|------------------|---------|
-| VAR-based Granger | Regression (conditional) | *F*-test on multivariate VAR | `statsmodels` |
-| Transfer entropy | Information-theoretic | CMIknn surrogates | `tigramite` |
-| PCMCI+ | Constraint-based | Auto: ParCorr / RobustParCorr / CMIknn | `tigramite` |
-| LPCMCI | Constraint-based (latent confounders) | Auto | `tigramite` |
-| VAR-LiNGAM | Score-based (ICA) | Bootstrap pruning | `lingam` |
-| RF-baseline | Predictive (non-causal) | Permutation importance | `scikit-learn` |
+<img src="docs/figures/graphical_abstract.png" alt="AutoCause graphical abstract" width="90%">
 
-The first five are causal discovery methods from the dominant paradigms. The RF-baseline is a predictive reference included to answer: "does causal discovery find something different from feature importance?"
+**Automated expert decisions for environmental time-series causal discovery**: method selection, lag choice, CI-test selection, sample-size adequacy, FDR correction, and evidence grading.
 
-## Installation
+</div>
+
+## Contents
+
+- [Install](#install)
+- [Quickstart](#quickstart)
+- [Usage](#usage)
+- [Framework &amp; pipeline](#framework--pipeline)
+- [Citation](#citation)
+- [License](#license)
+
+## Install
 
 ### Users
 
@@ -31,10 +38,11 @@ uv pip install autocause
 pip install autocause
 ```
 
-The optional causal-audit pre-discovery module is installed as an extra:
+The optional causal-audit pre-discovery module is currently installed from
+its source repository (it is not available on PyPI):
 
 ```bash
-uv pip install "autocause[causal-audit]"
+uv pip install "git+https://github.com/marcoruizrueda/causal-audit.git"
 ```
 
 ### Contributors
@@ -49,27 +57,52 @@ source .venv/bin/activate
 uv pip install -e .
 ```
 
+For development with the pre-discovery audit, clone `causal-audit` beside
+`autocause` and install both editable packages:
+
+```bash
+git clone https://github.com/marcoruizrueda/causal-audit.git ../causal-audit
+uv pip install -e ../causal-audit -e '.[causal-audit]'
+```
+
+The `uv` source configuration and lockfile use that sibling checkout. The
+supported interpreter is Python 3.13, including the companion audit package.
+`numba` is a required dependency for the CMIknn transfer-entropy estimator;
+LiNGAM brings its own dependencies, including `psy`, through the resolver.
+
 ## Quickstart
 
 ```python
 import pandas as pd
-from framework.core.run_workflow import run_causal_discovery_workflow
+from autocause.core.run_workflow import run_causal_discovery_workflow
 
 # DataFrame with a DatetimeIndex and one column per variable
 df = pd.read_csv("data.csv", index_col=0, parse_dates=True)
 
-result = run_causal_discovery_workflow(data_df=df, output_dir="results/")
-print(result["consensus"]["tier1_edges"])  # majority-supported candidate links
+result = run_causal_discovery_workflow(
+    data_df=df,
+    output_dir="results/",
+    enable_causal_audit=True,
+    apply_audit_recommendation=True,
+    enable_consensus=True,
+)
+print(result["success"])
 ```
 
-This runs the full workflow with recorded defaults. See [Usage](#usage) for
-exploratory and configured runs.
+This enables the companion audit and consensus alongside the default workflow
+stages. The audit fills unset configuration fields; review saved warnings and
+evidence before interpreting links. See [Usage](#usage) for configured runs.
+
+Run the [quickstart notebook](examples/quickstart.ipynb) for the complete workflow
+and its figures. Use the independent [walkthrough](examples/walkthrough.ipynb) for
+configuration, statistical interpretation, and auditing. See
+[Quickstart validation](docs/QUICKSTART_VALIDATION.md) for reproducible checks.
 
 ## Usage
 
 ```python
 import pandas as pd
-from framework.core.run_workflow import run_causal_discovery_workflow
+from autocause.core.run_workflow import run_causal_discovery_workflow
 
 # Input: DataFrame with DatetimeIndex, one column per variable, NaN for missing
 df = pd.read_csv("data.csv", index_col=0, parse_dates=True)
@@ -112,55 +145,24 @@ results = run_causal_discovery_workflow(
 
 For detailed options (audit-only mode, adaptive CI-test selection, sample size adequacy, PCMCI vs PCMCI+, graph recovery metrics), see [`docs/USAGE.md`](docs/USAGE.md).
 
-## Pipeline
+### Methods
 
-![AutoCause pipeline architecture](docs/figures/fig1_architecture.png)
+| Method | Paradigm | CI test / engine | Library |
+|--------|----------|------------------|---------|
+| VAR-based Granger | Regression (conditional) | *F*-test on multivariate VAR | `statsmodels` |
+| Transfer entropy | Information-theoretic | CMIknn surrogates | `tigramite` |
+| PCMCI+ | Constraint-based | Auto: ParCorr / RobustParCorr / CMIknn | `tigramite` |
+| LPCMCI | Constraint-based (latent confounders) | Auto | `tigramite` |
+| VAR-LiNGAM | Score-based (ICA) | Bootstrap pruning | `lingam` |
+| RF-baseline | Predictive (non-causal) | Permutation importance | `scikit-learn` |
 
-**A. Data and assumptions**
+The first five are causal discovery methods from the dominant paradigms. The RF-baseline is a predictive reference included to answer: "does causal discovery find something different from feature importance?"
 
-1. **τ<sub>max</sub> estimation**: ACF zero-crossing, domain constraint, Nyquist bound
-2. **Sample size adequacy**: method-specific *T*<sub>min</sub> checks, CI-test fallback
-3. **Preprocessing**: outlier removal, interpolation, normalization, stationarity check
-4. **Deseasonalization** (optional): rolling-mean subtraction to remove annual cycles
-5. **[causal-audit](https://github.com/marcoruizrueda/causal-audit)** (optional): assumption diagnostics, risk scores, method recommendation
-6. **Distribution tests**: Gaussianity, linearity → CI test recommendation
-7. **Correlation analysis**: Pearson, Spearman, distance correlation (symmetric baseline)
+## Framework &amp; pipeline
 
-**B. Discovery**
-
-<!-- continued from A -->
-
-8. **VAR-based Granger causality**: conditional *F*-tests (all controls for *N* ≤ 10)
-
-9. **PCMCI+**: momentary conditional independence with adaptive CI test
-
-10. **LPCMCI**: PCMCI+ extended for latent confounders (outputs PAG)
-
-11. **VAR-LiNGAM**: ICA on VAR residuals (non-Gaussian identifiability)
-
-12. **Transfer entropy**: *k*-NN conditional mutual information with surrogate *p*-values
-
-13. **RF-baseline**: Random Forest feature importance (non-causal comparison)
-
-**C. Validation and synthesis**
-
-<!-- continued from B -->
-
-14. **Graph recovery evaluation**: F1, SHD, AUROC, AUPRC against ground truth (when available)
-
-15. **Ensemble scoring**: confidence-weighted aggregation across methods (regime-adaptive weights)
-
-16. **Power analysis**: minimum detectable effect size (MDES) per method
-
-17. **CI-test sensitivity**: compare edges across ParCorr / RobustParCorr / CMIknn
-
-18. **Falsification**: block permutation + IAAFT surrogate tests
-
-19. **ICP stability**: coefficient stability across environments
-
-20. **Consensus**: multi-method voting with lag tolerance
-
-21. **Tiered classification**: edges ranked by evidence strength
+The end-to-end architecture figure and the full 21-step workflow (data and
+assumptions, discovery, validation and synthesis) are documented in
+[FRAMEWORK.md](autocause/FRAMEWORK.md).
 
 ## Reproducing the paper experiments
 
@@ -170,14 +172,11 @@ All experiment scripts, configurations, and reproduction instructions are in
 ## Citation
 
 ```
-@misc{ruiz2026autocausepythonframeworkautomates,
-      title={AutoCause: A Python framework that automates expert decisions in environmental time-series causal discovery}, 
-      author={Marco Ruiz and Miguel Arana-Catania and David R. Ardila and Rodrigo Ventura},
-      year={2026},
-      eprint={2608.00198},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2608.00198}, 
+@article{ruiz2026autocause,
+  title={AutoCause: A Python framework that automates expert decisions in environmental time-series causal discovery},
+  author={Ruiz, Marco and Arana-Catania, Miguel and Ardila, David R and Ventura, Rodrigo},
+  journal={arXiv preprint arXiv:2608.00198},
+  year={2026}
 }
 # APA:
 Ruiz, M., Arana-Catania, M., Ardila, D. R., & Ventura, R. (2026). AutoCause: A Python framework that automates expert decisions in environmental time-series causal discovery. arXiv preprint arXiv:2608.00198.

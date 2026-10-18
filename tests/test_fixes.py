@@ -25,7 +25,7 @@ class TestLaggedCorrelation:
     """Test Issue 8 fix: lagged cross-correlation baseline."""
 
     def test_detects_correct_lag(self, causal_data):
-        from framework.core.methods.correlation import batch_lagged_correlation
+        from autocause.core.methods.correlation import batch_lagged_correlation
 
         results = batch_lagged_correlation(
             causal_data,
@@ -69,7 +69,7 @@ class TestLaggedCorrelation:
         assert abs(zy_best.iloc[0]["pearson_r"]) < 0.2
 
     def test_respects_tau_max(self, causal_data):
-        from framework.core.methods.correlation import batch_lagged_correlation
+        from autocause.core.methods.correlation import batch_lagged_correlation
 
         results = batch_lagged_correlation(
             causal_data,
@@ -80,7 +80,7 @@ class TestLaggedCorrelation:
 
     def test_handles_missing_data(self):
         """Lagged correlation should handle NaN values gracefully."""
-        from framework.core.methods.correlation import batch_lagged_correlation
+        from autocause.core.methods.correlation import batch_lagged_correlation
 
         np.random.seed(42)
         T = 200
@@ -103,7 +103,7 @@ class TestParadigmDiversity:
     """Test Issue 2 fix: paradigm-weighted consensus."""
 
     def test_paradigm_mapping(self):
-        from framework.core.methods.consensus import compute_paradigm_diversity
+        from autocause.core.methods.consensus import compute_paradigm_diversity
 
         # Same paradigm: should be 1
         assert compute_paradigm_diversity(["Granger", "VARLiNGAM"]) == 1
@@ -123,7 +123,7 @@ class TestParadigmDiversity:
 
     def test_consensus_includes_paradigm_diversity(self, causal_data):
         """Consensus output should include paradigm_diversity column."""
-        from framework.core.methods.consensus import detect_agreement
+        from autocause.core.methods.consensus import detect_agreement
 
         # Create fake method results that agree on X→Y
         granger_df = pd.DataFrame(
@@ -167,13 +167,96 @@ class TestParadigmDiversity:
         # All three methods from different paradigms → diversity = 3
         assert consensus.iloc[0]["paradigm_diversity"] == 3
 
+    def test_failed_and_nonsignificant_rows_do_not_vote(self):
+        """Only valid, significant detections count toward consensus."""
+        from autocause.core.methods.consensus import detect_agreement
+
+        granger_df = pd.DataFrame(
+            [{"cause": "X", "effect": "Y", "best_lag": 1,
+              "p_value": 0.001, "q_value": 0.001, "significant": True}]
+        )
+        # Mirrors the quickstart's failed TE output: candidate delay is present,
+        # but the statistic and p-value are NaN and no significance flag is set.
+        failed_te_df = pd.DataFrame(
+            [{"source": "X", "target": "Y", "delay": 1, "te": np.nan,
+              "p_value": np.nan, "q_value": np.nan, "significant": False,
+              "is_significant": False}]
+        )
+        pcmci_df = pd.DataFrame(
+            [{"source": "X", "target": "Y", "best_lag": 1,
+              "best_p_value": 0.002, "is_significant": True, "causal": True}]
+        )
+
+        single_method = detect_agreement(
+            granger_df, failed_te_df, pd.DataFrame(), min_votes=2
+        )
+        # The existing high-confidence Granger exception may retain one
+        # significant Granger-only link, but failed TE must not raise its vote
+        # count or appear among the agreeing methods.
+        assert len(single_method) == 1
+        assert single_method.iloc[0]["vote_count"] == 1
+        assert single_method.iloc[0]["agreeing_methods"] == "Granger"
+
+        valid_consensus = detect_agreement(
+            granger_df, failed_te_df, pcmci_df, min_votes=2
+        )
+        assert len(valid_consensus) == 1
+        assert valid_consensus.iloc[0]["vote_count"] == 2
+        assert set(valid_consensus.iloc[0]["agreeing_methods"].split(",")) == {
+            "Granger", "PCMCI+"
+        }
+
+    def test_missing_primary_q_value_uses_valid_alternate(self):
+        """A NaN q_value must not mask a valid best_q_value alias."""
+        from autocause.core.methods.consensus import detect_agreement
+
+        granger_df = pd.DataFrame(
+            [{"cause": "X", "effect": "Y", "best_lag": 1,
+              "q_value": np.nan, "best_q_value": 0.01, "p_value": 0.2}]
+        )
+        te_df = pd.DataFrame(
+            [{"source": "X", "target": "Y", "delay": 1,
+              "p_value": 0.02, "is_significant": True}]
+        )
+
+        result = detect_agreement(granger_df, te_df, pd.DataFrame(), min_votes=2)
+        assert len(result) == 1
+        assert result.iloc[0]["vote_count"] == 2
+        assert result.iloc[0]["best_q_value"] == 0.01
+
+    def test_contemporaneous_and_lagged_edges_do_not_match(self):
+        """Lag tolerance must not combine lag 0 with lagged causal links."""
+        from autocause.core.methods.consensus import detect_agreement
+
+        granger_df = pd.DataFrame(
+            [{"cause": "X", "effect": "Y", "best_lag": 1,
+              "q_value": 0.001, "p_value": 0.001}]
+        )
+        pcmci_df = pd.DataFrame(
+            [{"source": "X", "target": "Y", "best_lag": 0,
+              "best_p_value": 0.001, "is_significant": True, "causal": True,
+              "is_contemporaneous": True}]
+        )
+
+        result = detect_agreement(
+            granger_df, pd.DataFrame(), pcmci_df,
+            lag_tolerance_steps=1, min_votes=2,
+        )
+
+        # The high-confidence Granger-only rule may retain the lag-1 edge, but
+        # PCMCI's lag-0 result must not be counted as a second vote for it.
+        assert len(result) == 1
+        assert result.iloc[0]["lag_steps"] == 1
+        assert result.iloc[0]["vote_count"] == 1
+        assert result.iloc[0]["agreeing_methods"] == "Granger"
+
 
 class TestTauMaxMultiVariable:
     """Test Issue 6 fix: tau_max estimated across all variables."""
 
     def test_uses_max_across_pairs(self):
         """tau_max should reflect the longest memory in the system."""
-        from framework.core.tau_max_estimation import estimate_tau_max_scientific
+        from autocause.core.tau_max_estimation import estimate_tau_max_scientific
 
         np.random.seed(42)
         T = 500
@@ -213,7 +296,7 @@ class TestDifferencingWarning:
 
     def test_warning_emitted_on_differencing(self):
         """Preprocessing should warn when differencing changes causal semantics."""
-        from framework.core.preprocessing import TimeSeriesPreprocessor
+        from autocause.core.preprocessing import TimeSeriesPreprocessor
 
         np.random.seed(42)
         T = 200

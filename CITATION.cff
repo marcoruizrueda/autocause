@@ -19,7 +19,7 @@ identifiers:
   - type: url
     value: "https://github.com/marcoruizrueda/autocause"
   - type: url
-    value: "https://arxiv.org/abs/XXXX.XXXXX"
+    value: "https://arxiv.org/abs/2608.00198"
 repository-code: "https://github.com/marcoruizrueda/autocause"
 license: "AGPL-3.0-or-later"
 version: "0.2.0"
@@ -29,3 +29,17 @@ keywords:
   - "time series"
   - "environmental modelling"
   - "Python"
+preferred-citation:
+  type: article
+  title: "AutoCause: A Python framework that automates expert decisions in environmental time-series causal discovery"
+  authors:
+    - family-names: Ruiz
+      given-names: Marco
+    - family-names: Arana-Catania
+      given-names: Miguel
+    - family-names: Ardila
+      given-names: David R.
+    - family-names: Ventura
+      given-names: Rodrigo
+  journal: "arXiv preprint arXiv:2608.00198"
+  year: 2026

@@ -27,3 +27,13 @@ build/
 # Experiment results (generated, not committed)
 experiments/**/results/
 experiments/**/figures/
+
+# Quickstart run artifacts (regenerated on run)
+examples/quickstart_output/
+examples/walkthrough_output/
+experiments/paper3_gap-filling/papers/
+# Internal agent instructions (not part of the released package)
+AGENTS.md
+# Other-paper and scratch material (not part of this release)
+experiments/paper3_gap-filling/
+experiments/figures_fig15_preview/

@@ -35,7 +35,7 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from framework.core.graph_metrics import binary_metrics_undirected
+from autocause.core.graph_metrics import binary_metrics_undirected
 
 logging.basicConfig(
     level=logging.INFO,
@@ -245,7 +245,7 @@ def main():
         logger.info(f"  Benchmarks: DGP-Atlas, TimeGraph, CausalRivers")
         logger.info(f"  Tier definitions: Tier-1 (>=3), Tier-2 (=2), Tier-3 (=1)")
         try:
-            from framework.core.graph_metrics import binary_metrics_undirected
+            from autocause.core.graph_metrics import binary_metrics_undirected
             logger.info("  Imports OK")
         except ImportError as e:
             logger.error(f"  Import failed: {e}")

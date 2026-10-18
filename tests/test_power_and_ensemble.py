@@ -8,11 +8,11 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from framework.core.power_analysis import (
+from autocause.core.power_analysis import (
     compute_mdes_parcorr,
     analyze_power,
 )
-from framework.core.ensemble_scoring import (
+from autocause.core.ensemble_scoring import (
     DataRegime,
     get_method_weights,
     compute_ensemble_scores,

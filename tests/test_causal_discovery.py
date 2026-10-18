@@ -69,7 +69,7 @@ def make_chain(n=800, seed=42):
 
 class TestGranger:
     def test_detects_true_cause(self):
-        from framework.core.methods import granger
+        from autocause.core.methods import granger
 
         r = granger.batch_granger_causality(
             make_cause(), [("X", "Y")], maxlag=5, alpha=0.05
@@ -77,7 +77,7 @@ class TestGranger:
         assert r is not None and r["significant"].any()
 
     def test_no_false_positive(self):
-        from framework.core.methods import granger
+        from autocause.core.methods import granger
 
         r = granger.batch_granger_causality(
             make_independent(), [("X", "Y")], maxlag=5, alpha=0.05
@@ -86,7 +86,7 @@ class TestGranger:
             assert not r["significant"].any()
 
     def test_lag_recovery(self):
-        from framework.core.methods import granger
+        from autocause.core.methods import granger
 
         r = granger.batch_granger_causality(
             make_cause(lag=3, strength=0.7), [("X", "Y")], maxlag=8
@@ -95,7 +95,7 @@ class TestGranger:
         assert abs(best["best_lag"] - 3) <= 1
 
     def test_columns(self):
-        from framework.core.methods import granger
+        from autocause.core.methods import granger
 
         r = granger.batch_granger_causality(make_cause(n=300), [("X", "Y")], maxlag=5)
         for c in ["cause", "effect", "best_lag", "best_p_value", "significant"]:
@@ -104,7 +104,7 @@ class TestGranger:
 
 class TestTransferEntropy:
     def test_detects_true_cause(self):
-        from framework.core.methods.transfer_entropy import batch_transfer_entropy
+        from autocause.core.methods.transfer_entropy import batch_transfer_entropy
 
         r = batch_transfer_entropy(
             make_cause(), [("X", "Y")], delays=[1, 2, 3], alpha=0.05
@@ -112,7 +112,7 @@ class TestTransferEntropy:
         assert r is not None and r["significant"].any()
 
     def test_columns(self):
-        from framework.core.methods.transfer_entropy import batch_transfer_entropy
+        from autocause.core.methods.transfer_entropy import batch_transfer_entropy
 
         r = batch_transfer_entropy(make_cause(n=300), [("X", "Y")], delays=[1, 2, 3])
         for c in ["source", "target", "delay", "p_value", "significant"]:
@@ -122,7 +122,7 @@ class TestTransferEntropy:
 class TestPCMCI:
     def test_detects_link_bivariate(self):
         """PCMCI+ should detect a link between X and Y (direction may flip in bivariate case)."""
-        from framework.core.methods.tigramite_pcmci import batch_pcmci
+        from autocause.core.methods.tigramite_pcmci import batch_pcmci
 
         r = batch_pcmci(
             make_strong_cause(), [("X", "Y"), ("Y", "X")], tau_max=5, alpha=0.05
@@ -131,7 +131,7 @@ class TestPCMCI:
 
     def test_chain_screens_off(self):
         """A→B→C: conditioning on B should screen off A from C."""
-        from framework.core.methods.tigramite_pcmci import batch_pcmci
+        from autocause.core.methods.tigramite_pcmci import batch_pcmci
 
         r = batch_pcmci(
             make_chain(),
@@ -164,7 +164,7 @@ class TestPCMCI:
         j at t), not the transpose. A transposed reader reports Y→X for a
         ground-truth X→Y lagged link, which this test catches.
         """
-        from framework.core.methods.tigramite_pcmci import batch_pcmci
+        from autocause.core.methods.tigramite_pcmci import batch_pcmci
 
         r = batch_pcmci(
             make_strong_cause(), [("X", "Y"), ("Y", "X")], tau_max=5, alpha=0.05
@@ -178,7 +178,7 @@ class TestPCMCI:
     def test_extract_respects_tigramite_convention(self):
         """extract_causal_edges must map graph[i,j,tau]='-->' to source=i,target=j."""
         import numpy as np
-        from framework.core.methods.tigramite_pcmci import extract_causal_edges
+        from autocause.core.methods.tigramite_pcmci import extract_causal_edges
 
         names = ["X", "Y"]
         graph = np.full((2, 2, 3), "", dtype="<U3")
@@ -196,7 +196,7 @@ class TestPCMCI:
     def test_extract_contemporaneous_oo_is_undirected(self):
         """Contemporaneous 'o-o' links must be flagged undirected (Markov-equiv.)."""
         import numpy as np
-        from framework.core.methods.tigramite_pcmci import extract_causal_edges
+        from autocause.core.methods.tigramite_pcmci import extract_causal_edges
 
         names = ["X", "Y"]
         graph = np.full((2, 2, 1), "", dtype="<U3")
@@ -213,13 +213,13 @@ class TestPCMCI:
 
 class TestTauMax:
     def test_positive(self):
-        from framework.core.tau_max_estimation import estimate_tau_max_scientific
+        from autocause.core.tau_max_estimation import estimate_tau_max_scientific
 
         df = make_cause()
         assert estimate_tau_max_scientific(df["X"], df["Y"], 1, 30)["tau_max"] > 0
 
     def test_bounded(self):
-        from framework.core.tau_max_estimation import estimate_tau_max_scientific
+        from autocause.core.tau_max_estimation import estimate_tau_max_scientific
 
         df = make_cause()
         assert estimate_tau_max_scientific(df["X"], df["Y"], 1, 10)["tau_max"] <= 10
@@ -227,7 +227,7 @@ class TestTauMax:
 
 class TestWorkflow:
     def test_granger_only(self):
-        from framework.core.run_workflow import run_causal_discovery_workflow
+        from autocause.core.run_workflow import run_causal_discovery_workflow
 
         with tempfile.TemporaryDirectory() as d:
             run_causal_discovery_workflow(
@@ -270,7 +270,7 @@ def make_nongaussian_cause(n=500, lag=1, strength=0.7, seed=42):
 class TestVARLiNGAM:
     def test_detects_true_cause(self):
         """VAR-LiNGAM should detect X→Y with non-Gaussian noise."""
-        from framework.core.methods.varlingam import batch_varlingam
+        from autocause.core.methods.varlingam import batch_varlingam
 
         r = batch_varlingam(make_nongaussian_cause(), [("X", "Y")], lags=3)
         assert r is not None and len(r) > 0
@@ -279,7 +279,7 @@ class TestVARLiNGAM:
 
     def test_coefficient_sign(self):
         """Recovered coefficient should be positive (true strength=0.7)."""
-        from framework.core.methods.varlingam import batch_varlingam
+        from autocause.core.methods.varlingam import batch_varlingam
 
         r = batch_varlingam(make_nongaussian_cause(), [("X", "Y")], lags=3)
         sig = r[r["is_significant"] & (r["source"] == "X") & (r["target"] == "Y")]
@@ -290,7 +290,7 @@ class TestVARLiNGAM:
             )
 
     def test_output_columns(self):
-        from framework.core.methods.varlingam import batch_varlingam
+        from autocause.core.methods.varlingam import batch_varlingam
 
         r = batch_varlingam(make_nongaussian_cause(n=300), [("X", "Y")], lags=2)
         for c in ["source", "target", "lag", "coefficient", "is_significant", "method"]:

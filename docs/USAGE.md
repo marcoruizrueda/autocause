@@ -33,7 +33,7 @@ Override with `method_config={"pcmci": {"test_method": "cmiknn"}}` for explicit 
 Before running any method, AutoCause checks whether the effective sample size (*T* − τ<sub>max</sub> − missing rows) is sufficient for each method. The check runs automatically and saves `sample_size_adequacy.json` in the output directory.
 
 ```python
-from framework.core.sample_size_adequacy import assess_sample_size
+from autocause.core.sample_size_adequacy import assess_sample_size
 
 report = assess_sample_size(df, tau_max=10)
 print(report.t_effective)          # e.g., 185
@@ -86,7 +86,7 @@ SHD (Structural Hamming Distance) counts the minimum number of edge additions, d
 
 ```python
 from causal_audit import RiskAwareGatekeeper
-from framework.core.run_workflow import run_causal_discovery_workflow
+from autocause.core.run_workflow import run_causal_discovery_workflow
 
 gk = RiskAwareGatekeeper(random_seed=42)
 audit = gk.analyze(data=df, output_dir="audit_results/")

@@ -13,6 +13,12 @@ Configuration:
 - Methods: VAR-Granger, VARLiNGAM, PCMCI+ (ParCorr)
 - Metrics: Surrogate Edge Rate (SER), Separation indicator
 
+The paper's Appendix A.4 fixes PCMCI+ to ParCorr so the surrogate behaviour is
+not mixed with CI-test selection. Passing --adaptive-ci instead runs PCMCI+ with
+the pipeline's own data-driven CI selector, which gives an empirical
+pipeline-level false-positive rate that includes the selection step. This is the
+measurement referenced by the post-selection-inference discussion in Section 3.3.
+
 IAAFT surrogates preserve marginal distribution and approximately preserve
 the power spectrum while disrupting cross-variable dependence.
 
@@ -35,7 +41,7 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from framework.core.run_workflow import run_causal_discovery_workflow
+from autocause.core.run_workflow import run_causal_discovery_workflow
 
 logging.basicConfig(
     level=logging.INFO,
@@ -68,8 +74,16 @@ FALSIFICATION_METHODS = {
 
 # Stratified subset: 1 dataset per DGP-Atlas family
 DGP_ATLAS_SUBSET = [
-    ("F1", 1), ("F2", 1), ("F3", 1), ("F4", 1), ("F5", 1),
-    ("F6", 1), ("F7", 1), ("F8", 1), ("F9", 1), ("F10", 1),
+    ("F1", 1),
+    ("F2", 1),
+    ("F3", 1),
+    ("F4", 1),
+    ("F5", 1),
+    ("F6", 1),
+    ("F7", 1),
+    ("F8", 1),
+    ("F9", 1),
+    ("F10", 1),
 ]
 
 # 6 TimeGraph categories for falsification
@@ -83,7 +97,9 @@ CAUSALRIVERS_SUBSET = {
 }
 
 
-def generate_iaaft_surrogate(series: np.ndarray, max_iter: int = 100, seed: int = None) -> np.ndarray:
+def generate_iaaft_surrogate(
+    series: np.ndarray, max_iter: int = 100, seed: int = None
+) -> np.ndarray:
     """Generate an IAAFT surrogate that preserves marginal distribution and power spectrum.
 
     Iterative Amplitude Adjusted Fourier Transform (Schreiber & Schmitz 2000).
@@ -214,10 +230,20 @@ def compute_surrogate_edge_rate(
     methods = ["granger", "pcmci", "varlingam"]
     observed_edges = {}
     for method in methods:
-        result_path = output_dir / dataset_name / "original" / "method" / method / "1-raw" / f"results_{method}.csv"
+        result_path = (
+            output_dir
+            / dataset_name
+            / "original"
+            / "method"
+            / method
+            / "1-raw"
+            / f"results_{method}.csv"
+        )
         if result_path.exists():
             mdf = pd.read_csv(result_path)
-            sig_col = "is_significant" if "is_significant" in mdf.columns else "significant"
+            sig_col = (
+                "is_significant" if "is_significant" in mdf.columns else "significant"
+            )
             if sig_col in mdf.columns:
                 observed_edges[method] = mdf[sig_col].sum()
             else:
@@ -251,13 +277,22 @@ def compute_surrogate_edge_rate(
 
         for method in methods:
             result_path = (
-                output_dir / dataset_name / f"surrogate_{s_idx:02d}"
-                / "method" / method / "1-raw" / f"results_{method}.csv"
+                output_dir
+                / dataset_name
+                / f"surrogate_{s_idx:02d}"
+                / "method"
+                / method
+                / "1-raw"
+                / f"results_{method}.csv"
             )
             n_edges = 0
             if result_path.exists():
                 mdf = pd.read_csv(result_path)
-                sig_col = "is_significant" if "is_significant" in mdf.columns else "significant"
+                sig_col = (
+                    "is_significant"
+                    if "is_significant" in mdf.columns
+                    else "significant"
+                )
                 if sig_col in mdf.columns:
                     n_edges = mdf[sig_col].sum()
                 else:
@@ -269,7 +304,11 @@ def compute_surrogate_edge_rate(
     for method in methods:
         surrogate_counts = surrogate_edge_counts[method]
         mean_surrogate_edges = np.mean(surrogate_counts)
-        ser = mean_surrogate_edges / n_possible_directed if n_possible_directed > 0 else 0.0
+        ser = (
+            mean_surrogate_edges / n_possible_directed
+            if n_possible_directed > 0
+            else 0.0
+        )
 
         # Separation: observed edge count > 95th percentile of surrogate counts
         threshold = np.percentile(surrogate_counts, 95) if surrogate_counts else 0
@@ -294,9 +333,9 @@ def run_falsification(data_dir: Path, output_dir: Path) -> pd.DataFrame:
     total_start = time.time()
 
     # --- DGP-Atlas subset ---
-    logger.info(f"\n{'='*70}")
+    logger.info(f"\n{'=' * 70}")
     logger.info("FALSIFICATION: DGP-Atlas subset (10 datasets)")
-    logger.info(f"{'='*70}")
+    logger.info(f"{'=' * 70}")
 
     dgp_dir = data_dir / "dgp_atlas"
     for family, idx in DGP_ATLAS_SUBSET:
@@ -307,23 +346,26 @@ def run_falsification(data_dir: Path, output_dir: Path) -> pd.DataFrame:
             # Reuse loader from run_dgp_atlas
             sys.path.insert(0, str(PROJECT_ROOT / "experiments"))
             from run_dgp_atlas import load_dgp_dataset
+
             df, _ = load_dgp_dataset(dgp_dir, family, idx)
 
             results = compute_surrogate_edge_rate(df, output_dir, dataset_name)
             for method, metrics in results.items():
-                all_results.append({
-                    "dataset": dataset_name,
-                    "benchmark": "DGP-Atlas",
-                    "method": method,
-                    **metrics,
-                })
+                all_results.append(
+                    {
+                        "dataset": dataset_name,
+                        "benchmark": "DGP-Atlas",
+                        "method": method,
+                        **metrics,
+                    }
+                )
         except Exception as e:
             logger.warning(f"    Failed: {e}")
 
     # --- TimeGraph subset ---
-    logger.info(f"\n{'='*70}")
+    logger.info(f"\n{'=' * 70}")
     logger.info("FALSIFICATION: TimeGraph subset (6 categories)")
-    logger.info(f"{'='*70}")
+    logger.info(f"{'=' * 70}")
 
     tg_dir = data_dir / "timegraph"
     for category in TIMEGRAPH_SUBSET:
@@ -332,23 +374,26 @@ def run_falsification(data_dir: Path, output_dir: Path) -> pd.DataFrame:
 
         try:
             from run_timegraph import load_timegraph_dataset
+
             df, _ = load_timegraph_dataset(tg_dir, category)
 
             results = compute_surrogate_edge_rate(df, output_dir, dataset_name)
             for method, metrics in results.items():
-                all_results.append({
-                    "dataset": dataset_name,
-                    "benchmark": "TimeGraph",
-                    "method": method,
-                    **metrics,
-                })
+                all_results.append(
+                    {
+                        "dataset": dataset_name,
+                        "benchmark": "TimeGraph",
+                        "method": method,
+                        **metrics,
+                    }
+                )
         except Exception as e:
             logger.warning(f"    Failed: {e}")
 
     # --- CausalRivers subset ---
-    logger.info(f"\n{'='*70}")
+    logger.info(f"\n{'=' * 70}")
     logger.info("FALSIFICATION: CausalRivers subset (6 subgraphs)")
-    logger.info(f"{'='*70}")
+    logger.info(f"{'=' * 70}")
 
     cr_dir = data_dir / "causalrivers"
     for topo_class, indices in CAUSALRIVERS_SUBSET.items():
@@ -357,8 +402,15 @@ def run_falsification(data_dir: Path, output_dir: Path) -> pd.DataFrame:
             logger.info(f"\n  {dataset_name}")
             # CausalRivers subgraphs require the full pipeline to have been run first
             # Load from previously saved subgraph data if available
-            subgraph_data = output_dir.parent.parent / "causalrivers_validation" / "results" / f"{topo_class}_{idx:02d}"
-            logger.info(f"    (Requires CausalRivers experiment to have been run first)")
+            subgraph_data = (
+                output_dir.parent.parent
+                / "causalrivers_validation"
+                / "results"
+                / f"{topo_class}_{idx:02d}"
+            )
+            logger.info(
+                f"    (Requires CausalRivers experiment to have been run first)"
+            )
 
     total_elapsed = time.time() - total_start
 
@@ -374,12 +426,12 @@ def run_falsification(data_dir: Path, output_dir: Path) -> pd.DataFrame:
         # Write markdown summary
         _write_summary_markdown(summary, output_dir / "falsification_summary.md")
 
-        logger.info(f"\n{'='*70}")
+        logger.info(f"\n{'=' * 70}")
         logger.info("FALSIFICATION SUMMARY (Table A.4)")
-        logger.info(f"{'='*70}")
+        logger.info(f"{'=' * 70}")
         logger.info(f"\n{summary.to_string()}")
 
-    logger.info(f"\nTotal runtime: {total_elapsed:.0f}s ({total_elapsed/60:.1f} min)")
+    logger.info(f"\nTotal runtime: {total_elapsed:.0f}s ({total_elapsed / 60:.1f} min)")
     return results_df
 
 
@@ -391,13 +443,15 @@ def _compute_falsification_summary(results_df: pd.DataFrame) -> pd.DataFrame:
         for method in ["granger", "pcmci", "varlingam"]:
             method_data = bench_data[bench_data["method"] == method]
             if len(method_data) > 0:
-                rows.append({
-                    "benchmark": benchmark,
-                    "method": method,
-                    "mean_ser": method_data["surrogate_edge_rate"].mean(),
-                    "separation_rate": method_data["separation"].mean(),
-                    "n_datasets": len(method_data),
-                })
+                rows.append(
+                    {
+                        "benchmark": benchmark,
+                        "method": method,
+                        "mean_ser": method_data["surrogate_edge_rate"].mean(),
+                        "separation_rate": method_data["separation"].mean(),
+                        "n_datasets": len(method_data),
+                    }
+                )
     return pd.DataFrame(rows)
 
 
@@ -409,7 +463,9 @@ def _write_summary_markdown(summary: pd.DataFrame, path: Path):
         f.write(f"- Surrogates per dataset: {N_SURROGATES}\n")
         f.write(f"- tau_max: {TAU_MAX}\n")
         f.write(f"- alpha: {ALPHA}\n")
-        f.write(f"- Separation criterion: observed edge count > 95th percentile of surrogates\n\n")
+        f.write(
+            f"- Separation criterion: observed edge count > 95th percentile of surrogates\n\n"
+        )
         f.write("## Results\n\n")
         f.write("| Benchmark | Method | Mean SER | Separation Rate |\n")
         f.write("|-----------|--------|----------|----------------|\n")
@@ -418,8 +474,12 @@ def _write_summary_markdown(summary: pd.DataFrame, path: Path):
                 f"| {row['benchmark']} | {row['method']} | "
                 f"{row['mean_ser']:.3f} | {row['separation_rate']:.0%} |\n"
             )
-        f.write("\n\nSER = Surrogate Edge Rate (fraction of possible directed links under null)\n")
-        f.write("Separation = fraction of datasets where observed > surrogate threshold\n")
+        f.write(
+            "\n\nSER = Surrogate Edge Rate (fraction of possible directed links under null)\n"
+        )
+        f.write(
+            "Separation = fraction of datasets where observed > surrogate threshold\n"
+        )
 
 
 def main():
@@ -427,26 +487,45 @@ def main():
         description="Run falsification analysis (IAAFT surrogates) for paper Appendix A.4"
     )
     parser.add_argument(
-        "--data-dir", type=Path, default=Path("data"),
+        "--data-dir",
+        type=Path,
+        default=Path("data"),
         help="Root data directory containing dgp_atlas/, timegraph/, causalrivers/",
     )
     parser.add_argument(
-        "--output-dir", type=Path,
+        "--output-dir",
+        type=Path,
         default=Path("experiments/falsification_validation/results"),
+    )
+    parser.add_argument(
+        "--adaptive-ci",
+        action="store_true",
+        help="Run PCMCI+ with the pipeline's data-driven CI-test selector "
+        "(test_method='auto') instead of fixed ParCorr. This yields an empirical "
+        "pipeline-level false-positive rate that includes the cost of the "
+        "configuration selection step. The paper's Appendix A.4 uses fixed "
+        "ParCorr; this flag is provided for the post-selection-inference analysis "
+        "discussed in Section 3.3.",
     )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
+
+    ci_mode = "auto" if args.adaptive_ci else "parcorr"
+    FALSIFICATION_METHODS["pcmci"]["test_method"] = ci_mode
 
     if args.dry_run:
         logger.info("DRY RUN: Falsification analysis configuration")
         logger.info(f"  N surrogates: {N_SURROGATES}")
         logger.info(f"  DGP-Atlas datasets: {len(DGP_ATLAS_SUBSET)}")
         logger.info(f"  TimeGraph categories: {len(TIMEGRAPH_SUBSET)}")
-        logger.info(f"  CausalRivers subgraphs: {sum(len(v) for v in CAUSALRIVERS_SUBSET.values())}")
+        logger.info(
+            f"  CausalRivers subgraphs: {sum(len(v) for v in CAUSALRIVERS_SUBSET.values())}"
+        )
         logger.info(f"  Total datasets: 22")
-        logger.info(f"  Methods: granger, pcmci (ParCorr), varlingam")
+        logger.info(f"  Methods: granger, pcmci ({ci_mode}), varlingam")
         try:
-            from framework.core.run_workflow import run_causal_discovery_workflow
+            from autocause.core.run_workflow import run_causal_discovery_workflow
+
             logger.info("  Imports OK")
         except ImportError as e:
             logger.error(f"  Import failed: {e}")

@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from framework.core.graph_metrics import binary_metrics, binary_metrics_undirected
+from autocause.core.graph_metrics import binary_metrics, binary_metrics_undirected
 
 
 def test_perfect_recovery():

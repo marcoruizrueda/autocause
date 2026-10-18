@@ -8,7 +8,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from framework.core.sample_size_adequacy import (
+from autocause.core.sample_size_adequacy import (
     assess_method_adequacy,
     assess_sample_size,
     compute_effective_sample_size,

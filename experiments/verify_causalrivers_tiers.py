@@ -173,7 +173,7 @@ def main():
                      f"Tier-2={EXPECTED_TIER_PRECISION[2]:.3f}, "
                      f"Tier-3={EXPECTED_TIER_PRECISION[3]:.3f}")
         try:
-            from framework.core.graph_metrics import binary_metrics_undirected
+            from autocause.core.graph_metrics import binary_metrics_undirected
             logger.info("  Imports OK")
         except ImportError as e:
             logger.error(f"  Import failed: {e}")
