@@ -17,6 +17,13 @@
 
 </div>
 
+> Ruiz, M.¹, Arana-Catania, M.², Ardila, D. R.³ & Ventura, R.¹ (2026).
+> *Environmental Modelling & Software.*
+>
+> ¹ ISR-Lisbon, Instituto Superior Técnico, Lisbon &nbsp;
+> ² Digital Scholarship at Oxford, University of Oxford &nbsp;
+> ³ Jet Propulsion Lab., Caltech
+
 ## Contents
 
 - [Install](#install)
