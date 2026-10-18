@@ -45,11 +45,13 @@ uv pip install autocause
 pip install autocause
 ```
 
-The optional causal-audit pre-discovery module is currently installed from
-its source repository (it is not available on PyPI):
+The optional causal-audit pre-discovery module is installed with the
+`causal-audit` extra, or on its own:
 
 ```bash
-uv pip install "git+https://github.com/marcoruizrueda/causal-audit.git"
+uv pip install "autocause[causal-audit]"
+# or install the companion package directly
+pip install causal-audit
 ```
 
 ### Contributors
