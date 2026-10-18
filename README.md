@@ -11,7 +11,7 @@
   <a href="https://arxiv.org/abs/2608.00198">📄 Paper (arXiv:2608.00198)</a>
 </p>
 
-<img src="docs/figures/graphical_abstract.png" alt="AutoCause graphical abstract" width="90%">
+<img src="https://raw.githubusercontent.com/marcoruizrueda/autocause/main/docs/figures/graphical_abstract.png" alt="AutoCause graphical abstract" width="90%">
 
 **Automated expert decisions for environmental time-series causal discovery**: method selection, lag choice, CI-test selection, sample-size adequacy, FDR correction, and evidence grading.
 
@@ -102,10 +102,10 @@ This enables the companion audit and consensus alongside the default workflow
 stages. The audit fills unset configuration fields; review saved warnings and
 evidence before interpreting links. See [Usage](#usage) for configured runs.
 
-Run the [quickstart notebook](examples/quickstart.ipynb) for the complete workflow
-and its figures. Use the independent [walkthrough](examples/walkthrough.ipynb) for
+Run the [quickstart notebook](https://github.com/marcoruizrueda/autocause/blob/main/examples/quickstart.ipynb) for the complete workflow
+and its figures. Use the independent [walkthrough](https://github.com/marcoruizrueda/autocause/blob/main/examples/walkthrough.ipynb) for
 configuration, statistical interpretation, and auditing. See
-[Quickstart validation](docs/QUICKSTART_VALIDATION.md) for reproducible checks.
+[Quickstart validation](https://github.com/marcoruizrueda/autocause/blob/main/docs/QUICKSTART_VALIDATION.md) for reproducible checks.
 
 ## Usage
 
@@ -152,7 +152,7 @@ results = run_causal_discovery_workflow(
 )
 ```
 
-For detailed options (audit-only mode, adaptive CI-test selection, sample size adequacy, PCMCI vs PCMCI+, graph recovery metrics), see [`docs/USAGE.md`](docs/USAGE.md).
+For detailed options (audit-only mode, adaptive CI-test selection, sample size adequacy, PCMCI vs PCMCI+, graph recovery metrics), see [`docs/USAGE.md`](https://github.com/marcoruizrueda/autocause/blob/main/docs/USAGE.md).
 
 ### Methods
 
@@ -171,12 +171,12 @@ The first five are causal discovery methods from the dominant paradigms. The RF-
 
 The end-to-end architecture figure and the full 21-step workflow (data and
 assumptions, discovery, validation and synthesis) are documented in
-[FRAMEWORK.md](autocause/FRAMEWORK.md).
+[FRAMEWORK.md](https://github.com/marcoruizrueda/autocause/blob/main/autocause/FRAMEWORK.md).
 
 ## Reproducing the paper experiments
 
 All experiment scripts, configurations, and reproduction instructions are in
-[`experiments/README.md`](experiments/README.md).
+[`experiments/README.md`](https://github.com/marcoruizrueda/autocause/blob/main/experiments/README.md).
 
 ## Citation
 
